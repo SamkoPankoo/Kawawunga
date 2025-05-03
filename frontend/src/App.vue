@@ -2,7 +2,7 @@
 <template>
   <v-app>
     <v-app-bar app color="primary" dark>
-      <v-toolbar-title>PDF Editor</v-toolbar-title>
+      <v-toolbar-title>Kawawunga Pro PDF</v-toolbar-title>
       <v-spacer></v-spacer>
     </v-app-bar>
 
