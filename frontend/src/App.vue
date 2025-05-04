@@ -1,11 +1,6 @@
-<!-- frontend/src/App.vue -->
 <template>
   <v-app>
-    <v-app-bar app color="primary" dark>
-      <v-toolbar-title>PDF Editor</v-toolbar-title>
-      <v-spacer></v-spacer>
-    </v-app-bar>
-
+    <Navbar />
     <v-main>
       <router-view />
     </v-main>
@@ -13,5 +8,15 @@
 </template>
 
 <script setup>
-// App logic will go here
+import { onMounted } from 'vue'
+import { useAuthStore } from './stores/auth'
+import Navbar from './components/common/Navbar.vue'
+
+const authStore = useAuthStore()
+
+onMounted(() => {
+  if (authStore.isAuthenticated) {
+    authStore.fetchUser()
+  }
+})
 </script>
