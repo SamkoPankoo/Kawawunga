@@ -1,4 +1,3 @@
-<!-- frontend/src/views/HomeView.vue -->
 <template>
   <v-container class="text-center">
     <v-row>
