@@ -122,3 +122,4 @@ router.post('/generate-api-key', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+//backend/routes/auth.js

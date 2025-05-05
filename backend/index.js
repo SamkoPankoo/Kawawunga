@@ -8,6 +8,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const historyRoutes = require('./routes/history');
 const apiKeyMiddleware = require('./middleware/apiKey');
+const { initializeAdmin } = require('./init-data');
 
 dotenv.config();
 
@@ -39,8 +40,12 @@ const PORT = process.env.PORT || 3000;
 
 // Database sync and server start
 sequelize.sync({ alter: true })
-    .then(() => {
+    .then(async () => {
         console.log('Database connected successfully');
+
+        // Inicializuj admin používateľa, ak neexistuje
+        await initializeAdmin();
+
         app.listen(PORT, '0.0.0.0', () => {
             console.log(`Server running on port ${PORT}`);
         });
