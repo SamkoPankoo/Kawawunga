@@ -26,6 +26,7 @@ const routes = [
         component: () => import('../views/DashboardView.vue'),
         meta: { requiresAuth: true }
     },
+    // Pridaná chýbajúca "editor" routa
     {
         path: '/editor',
         name: 'editor',
@@ -58,39 +59,9 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
-        path: '/editor/image-to-pdf',
-        name: 'image-to-pdf',
-        component: () => import('../views/ImageToPdfView.vue'),
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/editor/pdf-to-image',
-        name: 'pdf-to-image',
-        component: () => import('../views/PdfToImageView.vue'),
-        meta: { requiresAuth: true }
-    },
-    {
         path: '/editor/delete-pages',
         name: 'delete-pages',
         component: () => import('../views/DeletePagesView.vue'),
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/editor/metadata',
-        name: 'edit-metadata',
-        component: () => import('../views/EditMetadataView.vue'),
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/editor/protect',
-        name: 'protect-pdf',
-        component: () => import('../views/ProtectPdfView.vue'),
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/editor/compress',
-        name: 'compress-pdf',
-        component: () => import('../views/CompressPdfView.vue'),
         meta: { requiresAuth: true }
     }
 ]
@@ -102,13 +73,19 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
     const authStore = useAuthStore()
-    const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-    const isGuest = to.matched.some(record => record.meta.guest)
 
-    if (requiresAuth && !authStore.isAuthenticated) {
-        next('/login')
-    } else if (isGuest && authStore.isAuthenticated) {
-        next('/')
+    if (to.matched.some(record => record.meta.requiresAuth)) {
+        if (!authStore.isAuthenticated) {
+            next('/login')
+        } else {
+            next()
+        }
+    } else if (to.matched.some(record => record.meta.guest)) {
+        if (authStore.isAuthenticated) {
+            next('/')
+        } else {
+            next()
+        }
     } else {
         next()
     }
