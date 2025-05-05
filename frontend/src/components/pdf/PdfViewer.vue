@@ -1,66 +1,85 @@
 <template>
   <v-card>
     <v-card-title class="d-flex justify-space-between align-center">
-      <span>PDF Viewer</span>
+      <span>{{ $t('pdf.viewer') }}</span>
       <div>
-        <v-btn icon @click="currentPage--" :disabled="currentPage <= 0">
+        <v-btn icon @click="prevPage" :disabled="currentPage <= 1">
           <v-icon>mdi-chevron-left</v-icon>
         </v-btn>
-        <span class="mx-2">{{ currentPage + 1 }} / {{ numPages }}</span>
-        <v-btn icon @click="currentPage++" :disabled="currentPage >= numPages - 1">
+        <span class="mx-2">{{ currentPage }} / {{ numPages }}</span>
+        <v-btn icon @click="nextPage" :disabled="currentPage >= numPages">
           <v-icon>mdi-chevron-right</v-icon>
         </v-btn>
       </div>
     </v-card-title>
     <v-card-text>
       <div ref="pdfContainer" class="pdf-container">
-        <vue-pdf-embed
-            :source="pdfUrl"
-            :page="currentPage + 1"
-            @loaded="handleLoaded"
-            @rendered="handleRendered"
-            @render-failed="handleRenderFailed"
-        />
+        <pdf
+            v-if="pdfUrl"
+            :src="pdfUrl"
+            :page="currentPage"
+            @num-pages="numPages = $event"
+            @page-loaded="pageLoaded"
+            @error="handleError"
+        ></pdf>
+        <v-progress-circular
+            v-if="loading"
+            indeterminate
+            color="primary"
+            class="mt-5"
+        ></v-progress-circular>
       </div>
     </v-card-text>
   </v-card>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import VuePdfEmbed from 'vue-pdf-embed'
+import { ref, watch } from 'vue';
+import pdf from 'vue-pdf';
 
 const props = defineProps({
   pdfUrl: {
     type: String,
     required: true
   }
-})
+});
 
-const emit = defineEmits(['page-selected'])
+const emit = defineEmits(['page-selected']);
 
-const currentPage = ref(0)
-const numPages = ref(0)
-const pdfContainer = ref(null)
+const currentPage = ref(1);
+const numPages = ref(0);
+const pdfContainer = ref(null);
+const loading = ref(true);
 
-const handleLoaded = (event) => {
-  numPages.value = event.numPages
-}
-
-const handleRendered = () => {
-  if (pdfContainer.value) {
-    pdfContainer.value.scrollTop = 0 // Scroll to top after rendering
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--;
   }
-  console.log('PDF rendered successfully')
-}
+};
 
-const handleRenderFailed = (error) => {
-  console.error('PDF render failed:', error)
-}
+const nextPage = () => {
+  if (currentPage.value < numPages.value) {
+    currentPage.value++;
+  }
+};
+
+const pageLoaded = () => {
+  if (pdfContainer.value) {
+    pdfContainer.value.scrollTop = 0;
+  }
+  loading.value = false;
+  console.log('PDF page loaded successfully');
+};
+
+const handleError = (error) => {
+  loading.value = false;
+  console.error('PDF loading error:', error);
+};
 
 watch(currentPage, (newPage) => {
-  emit('page-selected', newPage + 1)
-})
+  emit('page-selected', newPage);
+  loading.value = true;
+});
 </script>
 
 <style scoped>
@@ -68,5 +87,8 @@ watch(currentPage, (newPage) => {
   width: 100%;
   min-height: 600px;
   overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 </style>
