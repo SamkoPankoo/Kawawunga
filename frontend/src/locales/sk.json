@@ -1,1 +1,31 @@
-{}
+{
+  "common": {
+    "home": "Domov",
+    "login": "Prihlásenie",
+    "register": "Registrácia",
+    "logout": "Odhlásenie",
+    "dashboard": "Dashboard",
+    "editor": "Editor",
+    "language": "Jazyk"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Heslo",
+    "confirmPassword": "Potvrdiť heslo",
+    "loginButton": "Prihlásiť sa",
+    "registerButton": "Registrovať sa",
+    "forgotPassword": "Zabudli ste heslo?",
+    "noAccount": "Nemáte účet?",
+    "hasAccount": "Už máte účet?"
+  },
+  "pdf": {
+    "upload": "Nahrať PDF",
+    "merge": "Spojiť PDF",
+    "split": "Rozdeliť PDF",
+    "rotatePage": "Otočiť stranu",
+    "deletePage": "Vymazať stranu",
+    "addPage": "Pridať stranu",
+    "save": "Uložiť",
+    "download": "Stiahnuť"
+  }
+}
