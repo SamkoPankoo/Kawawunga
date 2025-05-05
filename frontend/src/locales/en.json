@@ -1,1 +1,31 @@
-{}
+{
+  "common": {
+    "home": "Home",
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "dashboard": "Dashboard",
+    "editor": "Editor",
+    "language": "Language"
+},
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "loginButton": "Login",
+    "registerButton": "Register",
+    "forgotPassword": "Forgot Password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "pdf": {
+    "upload": "Upload PDF",
+    "merge": "Merge PDF",
+    "split": "Split PDF",
+    "rotatePage": "Rotate Page",
+    "deletePage": "Delete Page",
+    "addPage": "Add Page",
+    "save": "Save",
+    "download": "Download"
+  }
+}
