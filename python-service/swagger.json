@@ -1,0 +1,677 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "PDF Editor Python API",
+    "description": "API pre manipuláciu s PDF súbormi",
+    "version": "1.0.0",
+    "contact": {
+      "email": "admin@example.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Development server"
+    },
+    {
+      "url": "https://example.com/pdf-api",
+      "description": "Production server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "system",
+      "description": "Systémové operácie"
+    },
+    {
+      "name": "pdf",
+      "description": "PDF operácie"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Kontrola dostupnosti API",
+        "description": "Vráti stav Python API servera",
+        "responses": {
+          "200": {
+            "description": "API je dostupné",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Python PDF Service is running"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/upload": {
+      "post": {
+        "tags": ["pdf"],
+        "summary": "Nahranie PDF súboru",
+        "description": "Nahrá PDF súbor na server pre ďalšie spracovanie",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pdf": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF súbor na nahranie"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Úspešne nahraný súbor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chybný požiadavok - neplatný súbor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Serverová chyba",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/merge": {
+      "post": {
+        "tags": ["pdf"],
+        "summary": "Zlúčenie PDF súborov",
+        "description": "Zlúči viacero PDF súborov do jedného",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file1": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Prvý PDF súbor"
+                  },
+                  "file2": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Druhý PDF súbor"
+                  },
+                  "file3": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Ďalšie PDF súbory (nepovinné)"
+                  },
+                  "output_filename": {
+                    "type": "string",
+                    "description": "Názov výstupného súboru (nepovinné)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Úspešne zlúčené PDF súbory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chybný požiadavok - neplatné súbory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Serverová chyba",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/split": {
+      "post": {
+        "tags": ["pdf"],
+        "summary": "Rozdelenie PDF súboru",
+        "description": "Rozdelí PDF súbor podľa špecifikovaných kritérií",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["file_id", "split_method"],
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID nahraného PDF súboru"
+                  },
+                  "split_method": {
+                    "type": "string",
+                    "enum": ["byPage", "byRanges", "extractPages"],
+                    "description": "Metóda rozdelenia súboru"
+                  },
+                  "ranges": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "integer",
+                          "description": "Začiatočná stránka rozsahu"
+                        },
+                        "end": {
+                          "type": "integer",
+                          "description": "Koncová stránka rozsahu"
+                        }
+                      }
+                    },
+                    "description": "Rozsahy strán pre metódu byRanges"
+                  },
+                  "pages": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Zoznam strán pre metódu extractPages"
+                  },
+                  "create_zip": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Vytvorenie ZIP archívu pre viac výstupných súborov"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Úspešne rozdelený PDF súbor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PdfInfo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chybný požiadavok - neplatné parametre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Súbor nenájdený",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Serverová chyba",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rotate": {
+      "post": {
+        "tags": ["pdf"],
+        "summary": "Otočenie strán v PDF",
+        "description": "Otočí strany v PDF súbore",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["file_id", "page", "rotation"],
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID nahraného PDF súboru"
+                  },
+                  "page": {
+                    "type": "integer",
+                    "description": "Číslo strany na otočenie (1-indexované)"
+                  },
+                  "rotation": {
+                    "type": "integer",
+                    "enum": [90, 180, 270],
+                    "description": "Uhol otočenia v stupňoch"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Úspešne otočené strany",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chybný požiadavok - neplatné parametre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Súbor nenájdený",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Serverová chyba",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/remove-pages": {
+      "post": {
+        "tags": ["pdf"],
+        "summary": "Odstránenie strán z PDF",
+        "description": "Odstráni špecifikované strany z PDF súboru",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["file_id", "pages"],
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID nahraného PDF súboru"
+                  },
+                  "pages": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Zoznam strán na odstránenie (1-indexované)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Úspešne odstránené strany",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chybný požiadavok - neplatné parametre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Súbor nenájdený",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Serverová chyba",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/watermark": {
+      "post": {
+        "tags": ["pdf"],
+        "summary": "Pridanie vodoznaku do PDF",
+        "description": "Pridá textový vodoznak do PDF súboru",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["file_id", "text"],
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID nahraného PDF súboru"
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "Text vodoznaku"
+                  },
+                  "opacity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0.3,
+                    "description": "Priehľadnosť vodoznaku (0-1)"
+                  },
+                  "size": {
+                    "type": "integer",
+                    "default": 36,
+                    "description": "Veľkosť písma"
+                  },
+                  "color": {
+                    "type": "string",
+                    "default": "gray",
+                    "description": "Farba vodoznaku (CSS farba)"
+                  },
+                  "angle": {
+                    "type": "integer",
+                    "default": 45,
+                    "description": "Uhol natočenia v stupňoch"
+                  },
+                  "pages": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Zoznam strán pre vodoznak (prázdne = všetky)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Úspešne pridaný vodoznak",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chybný požiadavok - neplatné parametre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Súbor nenájdený",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Serverová chyba",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/download/{file_id}": {
+      "get": {
+        "tags": ["pdf"],
+        "summary": "Stiahnutie PDF súboru",
+        "description": "Stiahnutie spracovaného PDF súboru",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "ID súboru na stiahnutie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF súbor",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Súbor nenájdený",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Serverová chyba",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/download-zip/{zip_id}": {
+      "get": {
+        "tags": ["pdf"],
+        "summary": "Stiahnutie ZIP archívu",
+        "description": "Stiahnutie ZIP archívu s viacerými PDF súbormi",
+        "parameters": [
+          {
+            "name": "zip_id",
+            "in": "path",
+            "required": true,
+            "description": "ID ZIP archívu na stiahnutie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ZIP archív",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Súbor nenájdený",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Serverová chyba",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PdfInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "filename": {
+            "type": "string",
+            "example": "document.pdf"
+          },
+          "pages": {
+            "type": "integer",
+            "example": 10
+          },
+          "filepath": {
+            "type": "string",
+            "example": "/app/uploads/550e8400-e29b-41d4-a716-446655440000.pdf"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Error message"
+          }
+        }
+      }
+    }
+  }
+}

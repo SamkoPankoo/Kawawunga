@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import authService from '../services/auth'
+import router from '../router'
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null)
@@ -32,21 +33,30 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    function logout() {
+    async function logout() {
         user.value = null
         token.value = null
         localStorage.removeItem('token')
+
+        // Vynútené presmerovanie na login stránku pri odhlásení
+        if (router.currentRoute.value.meta.requiresAuth) {
+            // Použitie reload pre vynútenie obnovenia stránky a stavu aplikácie
+            window.location.href = '/login'
+        }
     }
 
     async function fetchUser() {
-        if (!token.value) return
+        if (!token.value) return null
 
         try {
             const response = await authService.getCurrentUser()
             user.value = response.data
+            return response.data
         } catch (error) {
             console.error('Failed to fetch user:', error)
+            // Ak zlyhal fetch user, použijeme logout na vyčistenie stavu
             logout()
+            return null
         }
     }
 
@@ -61,4 +71,3 @@ export const useAuthStore = defineStore('auth', () => {
         fetchUser
     }
 })
-//frontend/src/stores/auth.js
