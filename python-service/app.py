@@ -7,6 +7,7 @@ import tempfile
 from pdf_operations import PdfOperations
 from watermark_operations import WatermarkOperations
 from rotate_operations import RotateOperations
+from delete_pages_operations import DeletePagesOperations
 from flask_swagger_ui import get_swaggerui_blueprint
 
 app = Flask(__name__)
@@ -41,6 +42,7 @@ def serve_swagger():
 pdf_ops = PdfOperations(UPLOAD_FOLDER)
 watermark_ops = WatermarkOperations(UPLOAD_FOLDER)
 rotate_ops = RotateOperations(UPLOAD_FOLDER)
+delete_pages_ops = DeletePagesOperations(UPLOAD_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -214,6 +216,47 @@ def rotate_pages():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/remove-pages', methods=['POST'])
+def remove_pages():
+    data = request.json
+    file_id = data.get('file_id')
+    pages = data.get('pages', [])
+
+    if not file_id:
+        return jsonify({"error": "File ID is required"}), 400
+
+    if not pages:
+        return jsonify({"error": "Page numbers are required"}), 400
+
+    try:
+        # Get source file info
+        file_info = pdf_ops.pdf_storage.get(file_id)
+        if not file_info:
+            return jsonify({"error": "File not found"}), 404
+
+        source_path = file_info['filepath']
+
+        # Create output file
+        output_id = str(uuid.uuid4())
+        output_filename = f"pages_deleted_{output_id}.pdf"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+
+        # Delete pages
+        delete_pages_ops.delete_pages(source_path, output_path, pages)
+
+        # Create file info
+        result_info = {
+            "id": output_id,
+            "filename": output_filename,
+            "filepath": output_path
+        }
+
+        # Add to storage
+        pdf_ops.pdf_storage[output_id] = result_info
+
+        return jsonify(result_info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/download/<file_id>', methods=['GET'])
 def download_pdf(file_id):
