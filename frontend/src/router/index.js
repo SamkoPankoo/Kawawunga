@@ -5,7 +5,8 @@ const routes = [
     {
         path: '/',
         name: 'home',
-        component: () => import('../views/HomeView.vue')
+        component: () => import('../views/HomeView.vue'),
+        meta: { requiresAuth: true }
     },
     {
         path: '/login',
@@ -25,10 +26,42 @@ const routes = [
         component: () => import('../views/DashboardView.vue'),
         meta: { requiresAuth: true }
     },
+    // Pridaná chýbajúca "editor" routa
     {
         path: '/editor',
         name: 'editor',
         component: () => import('../views/EditorView.vue'),
+        meta: { requiresAuth: true }
+    },
+    // Editor routes
+    {
+        path: '/editor/merge',
+        name: 'merge-pdf',
+        component: () => import('../views/MergePdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/rotate',
+        name: 'rotate-pdf',
+        component: () => import('../views/RotatePdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/split',
+        name: 'split-pdf',
+        component: () => import('../views/SplitPdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/watermark',
+        name: 'watermark-pdf',
+        component: () => import('../views/WatermarkPdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/delete-pages',
+        name: 'delete-pages',
+        component: () => import('../views/DeletePagesView.vue'),
         meta: { requiresAuth: true }
     }
 ]
@@ -49,7 +82,7 @@ router.beforeEach((to, from, next) => {
         }
     } else if (to.matched.some(record => record.meta.guest)) {
         if (authStore.isAuthenticated) {
-            next('/dashboard')
+            next('/')
         } else {
             next()
         }

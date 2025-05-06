@@ -1,113 +1,87 @@
 <template>
-  <v-container fluid>
+  <v-container>
     <v-row>
-      <v-col cols="12">
-        <PdfToolbar @action="handleAction" />
+      <v-col cols="12" class="text-center">
+        <h1 class="text-h3 mb-6">{{ $t('pdf.toolTitle') }}</h1>
+        <p class="text-subtitle-1 mb-8">{{ $t('pdf.toolSubtitle') }}</p>
       </v-col>
     </v-row>
 
     <v-row>
-      <v-col cols="12" md="8">
-        <PdfViewer
-            v-if="currentPdf"
-            :pdf-url="currentPdf"
-            @page-selected="selectedPage = $event"
-        />
-        <PdfUploader v-else @file-uploaded="handleFileUpload" />
-      </v-col>
-
-      <v-col cols="12" md="4">
-        <v-card>
-          <v-card-title>{{ $t('pdf.tools') }}</v-card-title>
-          <v-card-text>
-            <v-list>
-              <v-list-item @click="rotatePage">
-                <v-list-item-title>{{ $t('pdf.rotatePage') }}</v-list-item-title>
-              </v-list-item>
-              <v-list-item @click="deletePage">
-                <v-list-item-title>{{ $t('pdf.deletePage') }}</v-list-item-title>
-              </v-list-item>
-              <v-list-item @click="showMergeDialog = true">
-                <v-list-item-title>{{ $t('pdf.merge') }}</v-list-item-title>
-              </v-list-item>
-            </v-list>
+      <v-col v-for="tool in pdfTools" :key="tool.id" cols="12" sm="6" md="4" lg="3">
+        <v-card
+            :to="tool.route"
+            height="100%"
+            class="d-flex flex-column tool-card"
+            hover
+            elevation="2"
+        >
+          <v-card-title class="text-center">
+            <v-icon size="48" color="primary" class="mb-2">{{ tool.icon }}</v-icon>
+            <div class="text-h6">{{ $t(tool.title) }}</div>
+          </v-card-title>
+          <v-card-text class="text-center">
+            <p>{{ $t(tool.description) }}</p>
           </v-card-text>
+          <v-spacer></v-spacer>
+          <v-card-actions class="justify-center mb-2">
+            <v-btn color="primary" variant="outlined">
+              {{ $t('common.use') }}
+            </v-btn>
+          </v-card-actions>
         </v-card>
       </v-col>
     </v-row>
-
-    <!-- Merge Dialog -->
-    <v-dialog v-model="showMergeDialog" max-width="500">
-      <v-card>
-        <v-card-title>{{ $t('pdf.merge') }}</v-card-title>
-        <v-card-text>
-          <v-file-input
-              v-model="mergeFile"
-              :label="$t('pdf.selectFile')"
-              accept="application/pdf"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn @click="showMergeDialog = false">{{ $t('common.cancel') }}</v-btn>
-          <v-btn color="primary" @click="mergePdfs">{{ $t('pdf.merge') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </v-container>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import PdfToolbar from '../components/pdf/PdfToolbar.vue'
-import PdfViewer from '../components/pdf/PdfViewer.vue'
-import PdfUploader from '../components/pdf/PdfUploader.vue'
-import { usePdfStore } from '../stores/pdf'
+import { ref } from 'vue';
 
-const pdfStore = usePdfStore()
-
-const currentPdf = ref(null)
-const selectedPage = ref(0)
-const showMergeDialog = ref(false)
-const mergeFile = ref(null)
-
-const handleFileUpload = (file) => {
-  currentPdf.value = URL.createObjectURL(file)
-  pdfStore.setCurrentPdf(file)
-}
-
-const handleAction = (action) => {
-  switch (action) {
-    case 'save':
-      savePdf()
-      break
-    case 'download':
-      downloadPdf()
-      break
+const pdfTools = ref([
+  {
+    id: 1,
+    icon: 'mdi-file-link',
+    title: 'pdf.mergePdf',
+    description: 'pdf.mergePdfDesc',
+    route: '/editor/merge'
+  },
+  {
+    id: 2,
+    icon: 'mdi-rotate-right',
+    title: 'pdf.rotatePdf',
+    description: 'pdf.rotatePdfDesc',
+    route: '/editor/rotate'
+  },
+  {
+    id: 3,
+    icon: 'mdi-file-split',
+    title: 'pdf.splitPdf',
+    description: 'pdf.splitPdfDesc',
+    route: '/editor/split'
+  },
+  {
+    id: 4,
+    icon: 'mdi-format-color-highlight',
+    title: 'pdf.watermarkPdf',
+    description: 'pdf.watermarkPdfDesc',
+    route: '/editor/watermark'
+  },
+  {
+    id: 5,
+    icon: 'mdi-file-remove',
+    title: 'pdf.deletePages',
+    description: 'pdf.deletePagesDesc',
+    route: '/editor/delete-pages'
   }
-}
-
-const rotatePage = async () => {
-  if (!selectedPage.value) return
-  await pdfStore.rotatePage(selectedPage.value)
-}
-
-const deletePage = async () => {
-  if (!selectedPage.value) return
-  await pdfStore.deletePage(selectedPage.value)
-}
-
-const mergePdfs = async () => {
-  if (!mergeFile.value) return
-  await pdfStore.mergePdfs(mergeFile.value)
-  showMergeDialog.value = false
-}
-
-const savePdf = async () => {
-  await pdfStore.savePdf()
-}
-
-const downloadPdf = () => {
-  pdfStore.downloadPdf()
-}
+]);
 </script>
+
+<style scoped>
+.tool-card {
+  transition: transform 0.2s;
+}
+.tool-card:hover {
+  transform: translateY(-5px);
+}
+</style>

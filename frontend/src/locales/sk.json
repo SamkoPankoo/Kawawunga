@@ -1,1 +1,110 @@
-{}
+{
+  "common": {
+    "home": "Domov",
+    "login": "Prihlásenie",
+    "register": "Registrácia",
+    "logout": "Odhlásenie",
+    "dashboard": "Dashboard",
+    "editor": "Editor",
+    "language": "Jazyk",
+    "use": "Použiť nástroj",
+    "cancel": "Zrušiť",
+    "save": "Uložiť",
+    "download": "Stiahnuť",
+    "upload": "Nahrať",
+    "next": "Ďalej",
+    "back": "Späť",
+    "finish": "Dokončiť",
+    "processing": "Spracovávam...",
+    "success": "Úspech",
+    "error": "Chyba"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Heslo",
+    "confirmPassword": "Potvrdiť heslo",
+    "loginButton": "Prihlásiť sa",
+    "registerButton": "Registrovať sa",
+    "forgotPassword": "Zabudli ste heslo?",
+    "noAccount": "Nemáte účet?",
+    "hasAccount": "Už máte účet?",
+    "loginError": "Neplatný email alebo heslo",
+    "registerError": "Registrácia zlyhala. Skúste to znova."
+  },
+  "pdf": {
+    "upload": "Nahrať PDF",
+    "merge": "Spojiť PDF",
+    "split": "Rozdeliť PDF",
+    "rotatePage": "Otočiť stranu",
+    "deletePage": "Vymazať stranu",
+    "addPage": "Pridať stranu",
+    "save": "Uložiť",
+    "download": "Stiahnuť",
+    "viewer": "PDF Prehliadač",
+    "toolTitle": "Nástroje PDF Editora",
+    "toolSubtitle": "Vyberte nástroj pre úpravu vašich PDF dokumentov",
+
+    "mergePdf": "Zlúčiť PDF",
+    "mergePdfDesc": "Spojte viacero PDF súborov do jedného dokumentu",
+
+    "rotatePdf": "Otočiť PDF",
+    "rotatePdfDesc": "Otočiť strany v PDF dokumente",
+
+    "splitPdf": "Rozdeliť PDF",
+    "splitPdfDesc": "Rozdeliť PDF dokument na viacero súborov",
+
+    "watermarkPdf": "Pridať vodoznak",
+    "watermarkPdfDesc": "Pridať textový alebo obrázkový vodoznak do PDF",
+
+    "imageToPdf": "Obrázok na PDF",
+    "imageToPdfDesc": "Konvertovať obrázky na PDF dokument",
+
+    "pdfToImage": "PDF na obrázok",
+    "pdfToImageDesc": "Konvertovať PDF stránky na obrázky",
+
+    "deletePages": "Vymazať stránky",
+    "deletePagesDesc": "Odstrániť stránky z PDF dokumentu",
+
+    "editMetadata": "Upraviť metadáta",
+    "editMetadataDesc": "Upraviť názov, autora a iné vlastnosti PDF",
+
+    "protectPdf": "Zabezpečiť PDF",
+    "protectPdfDesc": "Pridať ochranu heslom do PDF",
+
+    "compressPdf": "Komprimovať PDF",
+    "compressPdfDesc": "Zmenšiť veľkosť PDF súboru",
+
+    "dropFilesHere": "Pretiahnite súbory sem alebo kliknite pre výber",
+    "selectPages": "Vyberte stránky",
+    "allPages": "Všetky stránky",
+    "pageRange": "Rozsah strán",
+    "from": "Od",
+    "to": "Do",
+    "rotateOptions": "Možnosti otáčania",
+    "rotate90": "Otočiť o 90° v smere hod. ručičiek",
+    "rotate180": "Otočiť o 180°",
+    "rotate270": "Otočiť o 90° proti smeru hod. ručičiek",
+    "watermarkText": "Text vodoznaku",
+    "watermarkOpacity": "Priehľadnosť",
+    "fileProcessed": "Súbor bol úspešne spracovaný",
+    "compressionLevel": "Úroveň kompresie",
+    "low": "Nízka",
+    "medium": "Stredná",
+    "high": "Vysoká",
+    "password": "Heslo",
+    "confirmPassword": "Potvrdenie hesla",
+    "allowPrinting": "Povoliť tlač",
+    "allowCopying": "Povoliť kopírovanie",
+    "pageSelection": "Výber strán",
+    "outputFormat": "Výstupný formát",
+    "quality": "Kvalita"
+  },
+  "validation": {
+    "required": "Toto pole je povinné",
+    "email": "Zadajte platný email",
+    "minLength": "Minimálne {length} znakov",
+    "passwordMatch": "Heslá sa nezhodujú",
+    "fileType": "Neplatný typ súboru",
+    "maxFileSize": "Veľkosť súboru nemôže presiahnuť {size}MB"
+  }
+}

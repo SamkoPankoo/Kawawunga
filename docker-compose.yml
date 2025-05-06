@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -12,6 +10,8 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3000/api
+      - VITE_PYTHON_API_URL=http://localhost:5000
     depends_on:
       - backend
 
@@ -31,6 +31,9 @@ services:
       - DB_NAME=pdfeditor
       - DB_USER=root
       - DB_PASSWORD=rootpassword
+      - JWT_SECRET=your-super-secret-key-change-this
+      - ADMIN_EMAIL=admin@example.com
+      - ADMIN_PASSWORD=adminpassword123
     depends_on:
       - db
       - python-service
@@ -47,25 +50,28 @@ services:
     environment:
       - FLASK_ENV=development
 
-#  db:
-#    image: mysql:8.0
-#    ports:
-#      - "3306:3306"
-#    environment:
-#      - MYSQL_ROOT_PASSWORD=rootpassword
-#      - MYSQL_DATABASE=pdfeditor
-#    volumes:
-#      - dbdata:/var/lib/mysql
-#
-#  phpmyadmin:
-#    image: phpmyadmin/phpmyadmin
-#    ports:
-#      - "8081:80"
-#    environment:
-#      - PMA_HOST=db
-#      - PMA_PORT=3306
-#    depends_on:
-#      - db
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=pdfeditor
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=db
+      - PMA_PORT=3306
+      - PMA_USER=root
+      - PMA_PASSWORD=rootpassword
+    depends_on:
+      - db
 
 volumes:
   dbdata:
