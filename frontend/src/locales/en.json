@@ -71,6 +71,7 @@
     "apiUsageText": "You can also use our API to integrate PDF editing capabilities into your own applications. See the API Documentation for more details.",
     "commonIssues": "Common Issues",
     "commonIssuesText": "This section covers common issues you might encounter while using the PDF Editor and how to resolve them."
+
   },
   "pdf": {
     "upload": "Upload PDF",
@@ -131,7 +132,6 @@
     "rotate90": "Rotate 90° clockwise",
     "rotate180": "Rotate 180°",
     "rotate270": "Rotate 90° counterclockwise",
-
     "watermarkText": "Watermark text",
     "watermarkOpacity": "Opacity",
     "watermarkColor": "Color",
@@ -143,11 +143,9 @@
     "watermarkOptions": "Watermark options",
     "applyWatermark": "Apply Watermark",
     "watermarkApplied": "Watermark successfully applied",
-
     "pageSelection": "Page selection",
     "outputFormat": "Output format",
     "quality": "Quality",
-
     "protectOptions": "Protection options",
     "password": "Password",
     "confirmPassword": "Confirm password",
@@ -156,7 +154,6 @@
     "allowCopying": "Allow copying",
     "applyProtection": "Apply Protection",
     "protectionApplied": "Protection successfully applied",
-
     "compressionOptions": "Compression options",
     "compressionLevel": "Compression level",
     "low": "Low",
@@ -190,6 +187,7 @@
     "metadataError": "Error updating metadata",
     "uploadError": "Error uploading file",
     "downloadError": "Error downloading file"
+
   },
   "validation": {
     "required": "This field is required",
@@ -202,5 +200,6 @@
     "startEndOrder": "Start page must be less than or equal to end page",
     "extractPagesFormat": "Invalid format. Use comma-separated numbers (e.g., 1,3,5)",
     "invalidPages": "Invalid page numbers: {pages}. Max page is {max}"
+
   }
 }

@@ -11,7 +11,7 @@ async function getLocationInfo(ip) {
         }
 
         // Use a free IP geolocation service
-        const response = await axios.get(`http://ip-api.com/json/${ip}`);
+        const response = await axios.get(`https://ip-api.com/json/${ip}`);
         const data = response.data;
 
         return {

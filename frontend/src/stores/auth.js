@@ -61,3 +61,4 @@ export const useAuthStore = defineStore('auth', () => {
         fetchUser
     }
 })
+//frontend/src/stores/auth.js

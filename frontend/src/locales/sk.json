@@ -21,6 +21,7 @@
     "close": "Zavrieť",
     "apiDocs": "API Dokumentácia",
     "userGuide": "Používateľská príručka"
+
   },
   "auth": {
     "email": "Email",
@@ -33,6 +34,7 @@
     "hasAccount": "Už máte účet?",
     "loginError": "Neplatný email alebo heslo",
     "registerError": "Registrácia zlyhala. Skúste to znova."
+
   },
   "dashboard": {
     "welcome": "Vitajte",
@@ -71,6 +73,7 @@
     "apiUsageText": "Môžete tiež použiť naše API na integráciu funkcií úpravy PDF do vašich vlastných aplikácií. Viac informácií nájdete v API dokumentácii.",
     "commonIssues": "Časté problémy",
     "commonIssuesText": "Táto sekcia sa zaoberá častými problémami, s ktorými sa môžete stretnúť pri používaní PDF Editora, a ich riešeniami."
+
   },
   "pdf": {
     "upload": "Nahrať PDF",
@@ -82,7 +85,9 @@
     "save": "Uložiť",
     "download": "Stiahnuť",
     "viewer": "PDF Prehliadač",
+
     "preview": "Náhľad",
+
     "toolTitle": "Nástroje PDF Editora",
     "toolSubtitle": "Vyberte nástroj pre úpravu vašich PDF dokumentov",
 
@@ -118,6 +123,7 @@
 
     "dropFilesHere": "Pretiahnite súbory sem alebo kliknite pre výber",
     "selectPages": "Vyberte stránky",
+
     "selectedFiles": "Vybrané súbory",
     "needMinTwoFiles": "Musíte vybrať aspoň dva PDF súbory",
     "allPages": "Všetky stránky",
@@ -125,12 +131,14 @@
     "pageRange": "Rozsah strán",
     "customPages": "Vlastné stránky",
     "customPagesHint": "Príklad: 1,3,5-7",
+
     "from": "Od",
     "to": "Do",
     "rotateOptions": "Možnosti otáčania",
     "rotate90": "Otočiť o 90° v smere hod. ručičiek",
     "rotate180": "Otočiť o 180°",
     "rotate270": "Otočiť o 90° proti smeru hod. ručičiek",
+
 
     "watermarkText": "Text vodoznaku",
     "watermarkOpacity": "Priehľadnosť",
@@ -158,10 +166,12 @@
     "protectionApplied": "Ochrana bola úspešne aplikovaná",
 
     "compressionOptions": "Možnosti kompresie",
+
     "compressionLevel": "Úroveň kompresie",
     "low": "Nízka",
     "medium": "Stredná",
     "high": "Vysoká",
+
     "applyCompression": "Aplikovať kompresiu",
     "compressionApplied": "Kompresia bola úspešne aplikovaná",
 
@@ -190,6 +200,7 @@
     "metadataError": "Chyba pri aktualizácii metadát",
     "uploadError": "Chyba pri nahrávaní súboru",
     "downloadError": "Chyba pri sťahovaní súboru"
+
   },
   "validation": {
     "required": "Toto pole je povinné",
@@ -197,10 +208,12 @@
     "minLength": "Minimálne {length} znakov",
     "passwordMatch": "Heslá sa nezhodujú",
     "fileType": "Neplatný typ súboru",
+
     "maxFileSize": "Veľkosť súboru nemôže presiahnuť {size}MB",
     "pageRange": "Číslo strany musí byť medzi 1 a {max}",
     "startEndOrder": "Začiatočná strana musí byť menšia alebo rovná koncovej strane",
     "extractPagesFormat": "Neplatný formát. Použite čísla oddelené čiarkami (napr. 1,3,5)",
     "invalidPages": "Neplatné čísla strán: {pages}. Maximálna strana je {max}"
+
   }
 }
