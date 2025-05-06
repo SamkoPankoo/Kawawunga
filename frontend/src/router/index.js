@@ -26,6 +26,20 @@ const routes = [
         component: () => import('../views/DashboardView.vue'),
         meta: { requiresAuth: true }
     },
+    // Používateľská príručka
+    {
+        path: '/user-guide',
+        name: 'user-guide',
+        component: () => import('../views/UserGuideView.vue'),
+        meta: { requiresAuth: false }
+    },
+    // API dokumentácia
+    {
+        path: '/api-docs',
+        name: 'api-docs',
+        component: () => import('../views/ApiDocsView.vue'),
+        meta: { requiresAuth: true }
+    },
     // Pridaná chýbajúca "editor" routa
     {
         path: '/editor',
