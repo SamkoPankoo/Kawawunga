@@ -5,6 +5,8 @@ import uuid
 from werkzeug.utils import secure_filename
 import tempfile
 from pdf_operations import PdfOperations
+from watermark_operations import WatermarkOperations
+from flask_swagger_ui import get_swaggerui_blueprint
 
 app = Flask(__name__)
 CORS(app)
@@ -17,8 +19,26 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 
-# Initialize PDF operations
+# Register Swagger UI blueprint
+SWAGGER_URL = '/api-docs'
+API_URL = '/static/swagger.json'
+
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        'app_name': "PDF Editor Python API"
+    }
+)
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+
+@app.route('/static/swagger.json')
+def serve_swagger():
+    return send_file('swagger.json')
+
+# Initialize operations
 pdf_ops = PdfOperations(UPLOAD_FOLDER)
+watermark_ops = WatermarkOperations(UPLOAD_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -86,6 +106,62 @@ def split_pdf():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/watermark', methods=['POST'])
+def add_watermark():
+    data = request.json
+    file_id = data.get('file_id')
+    text = data.get('text')
+    opacity = data.get('opacity', 0.3)
+    size = data.get('size', 36)
+    color = data.get('color', 'gray')
+    angle = data.get('angle', 45)
+    pages = data.get('pages', None)
+
+    if not file_id:
+        return jsonify({"error": "File ID is required"}), 400
+
+    if not text:
+        return jsonify({"error": "Watermark text is required"}), 400
+
+    try:
+        # Get source file info
+        file_info = pdf_ops.pdf_storage.get(file_id)
+        if not file_info:
+            return jsonify({"error": "File not found"}), 404
+
+        source_path = file_info['filepath']
+
+        # Create output file
+        output_id = str(uuid.uuid4())
+        output_filename = f"watermarked_{output_id}.pdf"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+
+        # Apply watermark
+        watermark_ops.add_watermark(
+            source_path,
+            output_path,
+            text,
+            opacity,
+            size,
+            color,
+            angle,
+            pages
+        )
+
+        # Create file info
+        result_info = {
+            "id": output_id,
+            "filename": output_filename,
+            "filepath": output_path
+        }
+
+        # Add to storage
+        pdf_ops.pdf_storage[output_id] = result_info
+
+        return jsonify(result_info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/download/<file_id>', methods=['GET'])
 def download_pdf(file_id):
     filepath = pdf_ops.get_file_path(file_id)
@@ -123,34 +199,6 @@ def download_zip(zip_id):
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-@app.route('/rotate', methods=['POST'])
-def rotate_page():
-    data = request.json
-    file_id = data.get('file_id')
-    page_number = data.get('page', 1)
-    rotation = data.get('rotation', 90)
-
-    if not file_id:
-        return jsonify({"error": "File ID is required"}), 400
-
-    # Implement rotation in pdf_operations.py first
-    return jsonify({"error": "Not implemented yet"}), 501
-
-@app.route('/remove-pages', methods=['POST'])
-def remove_pages():
-    data = request.json
-    file_id = data.get('file_id')
-    pages = data.get('pages', [])
-
-    if not file_id:
-        return jsonify({"error": "File ID is required"}), 400
-
-    if not pages:
-        return jsonify({"error": "Page numbers are required"}), 400
-
-    # Implement page removal in pdf_operations.py first
-    return jsonify({"error": "Not implemented yet"}), 501
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
