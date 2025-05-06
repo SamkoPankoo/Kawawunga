@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import tempfile
 from pdf_operations import PdfOperations
 from watermark_operations import WatermarkOperations
+from rotate_operations import RotateOperations
 from flask_swagger_ui import get_swaggerui_blueprint
 
 app = Flask(__name__)
@@ -39,6 +40,7 @@ def serve_swagger():
 # Initialize operations
 pdf_ops = PdfOperations(UPLOAD_FOLDER)
 watermark_ops = WatermarkOperations(UPLOAD_FOLDER)
+rotate_ops = RotateOperations(UPLOAD_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -161,6 +163,57 @@ def add_watermark():
         return jsonify(result_info)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/rotate', methods=['POST'])
+def rotate_pages():
+    data = request.json
+    file_id = data.get('file_id')
+    angle = data.get('angle', 90)
+    page_selection = data.get('page_selection', 'all')
+    pages = data.get('pages', [])
+    page_ranges = data.get('page_ranges', [])
+
+    if not file_id:
+        return jsonify({"error": "File ID is required"}), 400
+
+    try:
+        # Get source file info
+        file_info = pdf_ops.pdf_storage.get(file_id)
+        if not file_info:
+            return jsonify({"error": "File not found"}), 404
+
+        source_path = file_info['filepath']
+
+        # Create output file
+        output_id = str(uuid.uuid4())
+        output_filename = f"rotated_{output_id}.pdf"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+
+        # Rotate pages based on selection method
+        if page_selection == 'all':
+            rotate_ops.rotate_all_pages(source_path, output_path, angle)
+        elif page_selection == 'range' and page_ranges:
+            rotate_ops.rotate_page_ranges(source_path, output_path, page_ranges, angle)
+        elif pages:
+            rotate_ops.rotate_pages(source_path, output_path, pages, angle)
+        else:
+            # Default to all pages
+            rotate_ops.rotate_all_pages(source_path, output_path, angle)
+
+        # Create file info
+        result_info = {
+            "id": output_id,
+            "filename": output_filename,
+            "filepath": output_path
+        }
+
+        # Add to storage
+        pdf_ops.pdf_storage[output_id] = result_info
+
+        return jsonify(result_info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/download/<file_id>', methods=['GET'])
 def download_pdf(file_id):
