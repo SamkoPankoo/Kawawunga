@@ -71,22 +71,18 @@
               {{ $t('apiDocs.openInNewTab') }}
             </v-btn>
           </v-card-title>
-          <v-card-text class="pa-4">
-            <v-alert type="info" class="mb-4" icon="mdi-information">
+          <v-card-text class="pa-0">
+            <v-alert v-if="iframeError" type="warning" class="ma-4">
               {{ $t('apiDocs.iframeError') }}
-              <div class="mt-3">
-                <v-btn
-                    color="primary"
-                    :href="pythonSwaggerUrl"
-                    target="_blank"
-                    prepend-icon="mdi-open-in-new"
-                    size="large"
-                    class="mr-2"
-                >
-                  {{ $t('apiDocs.openDirectly') }}
-                </v-btn>
-              </div>
             </v-alert>
+            <iframe
+                v-else
+                :src="pythonSwaggerUrl"
+                class="swagger-iframe"
+                frameborder="0"
+                @load="checkIframeLoaded"
+                @error="iframeError = true"
+            ></iframe>
           </v-card-text>
         </v-card>
       </v-window-item>
@@ -100,7 +96,18 @@ import { ref, onMounted, watchEffect } from 'vue';
 const activeTab = ref('backend');
 const iframeError = ref(false);
 
-
+// Metoda pro kontrolu načtení iframe
+const checkIframeLoaded = (event) => {
+  try {
+    // Pokus o přístup k obsahu iframe pro ověření, zda byl správně načten
+    const iframeContent = event.target.contentDocument || event.target.contentWindow.document;
+    iframeError.value = false;
+  } catch (e) {
+    // Pokud dojde k chybě, pravděpodobně se jedná o problém s CSP
+    console.error('Chyba při načítání iframe:', e);
+    iframeError.value = true;
+  }
+};
 
 
 
@@ -113,7 +120,16 @@ const baseUrl = window.location.origin;
 const backendSwaggerUrl = import.meta.env.VITE_API_URL.replace('/api', '/api-docs');
 const pythonSwaggerUrl = import.meta.env.VITE_PYTHON_API_URL + '/api-docs';
 
-
+// Funkce pro kontrolu přístupu k iframe
+const checkIframeAccess = async (url) => {
+  try {
+    const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+    return true;
+  } catch (error) {
+    console.error('Nepodařilo se přistoupit k iframe URL:', error);
+    return false;
+  }
+};
 </script>
 
 <style scoped>
