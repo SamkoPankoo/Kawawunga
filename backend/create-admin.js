@@ -1,15 +1,16 @@
+// backend/scripts/fix-admin.js
 const { Sequelize, DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 require('dotenv').config();
 
-// Vytvorenie Sequelize inštancie
+// Create a direct database connection
 const sequelize = new Sequelize('pdfeditor', 'root', 'rootpassword', {
     host: 'db',
     dialect: 'mysql'
 });
 
-// Definovanie User modelu priamo v skripte
+// Define User model directly in the script
 const User = sequelize.define('User', {
     id: {
         type: DataTypes.INTEGER,
@@ -38,39 +39,40 @@ const User = sequelize.define('User', {
     }
 });
 
-async function createAdmin() {
+async function fixAdmin() {
     try {
         await sequelize.authenticate();
-        console.log('Pripojenie k databáze úspešné');
+        console.log('Database connection successful');
 
-        // Manuálne zahashujeme heslo
+        // Manually hash the password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash('adminpassword123', salt);
 
-        // Skontrolujeme, či admin už existuje
+        // Check if admin already exists
         const existingAdmin = await User.findOne({ where: { email: 'admin@example.com' } });
 
         if (existingAdmin) {
-            console.log('Admin používateľ už existuje, aktualizujem heslo...');
+            console.log('Admin user found, updating password...');
             existingAdmin.password = hashedPassword;
+            existingAdmin.apiKey = crypto.randomBytes(32).toString('hex');
             await existingAdmin.save();
-            console.log('Admin heslo aktualizované');
+            console.log('Admin password and API key updated');
         } else {
-            console.log('Vytváram admin používateľa...');
+            console.log('Creating new admin user...');
             await User.create({
                 email: 'admin@example.com',
                 password: hashedPassword,
                 role: 'admin',
                 apiKey: crypto.randomBytes(32).toString('hex')
             });
-            console.log('Admin používateľ vytvorený');
+            console.log('Admin user created');
         }
     } catch (error) {
-        console.error('Chyba:', error);
+        console.error('Error:', error);
     } finally {
         await sequelize.close();
         process.exit(0);
     }
 }
 
-createAdmin();
+fixAdmin();

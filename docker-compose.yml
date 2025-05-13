@@ -11,9 +11,10 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_API_URL=http://localhost:3000/api
-      - VITE_PYTHON_API_URL=http://localhost:5000
+      - VITE_PYTHON_API_URL=http://localhost:5000/
     depends_on:
-      - backend
+       backend:
+         condition: service_healthy
 
   backend:
     build:
@@ -34,9 +35,17 @@ services:
       - JWT_SECRET=your-super-secret-key-change-this
       - ADMIN_EMAIL=admin@example.com
       - ADMIN_PASSWORD=adminpassword123
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
-      - db
-      - python-service
+      db:
+        condition: service_healthy
+      python-service:
+        condition: service_started
 
   python-service:
     build:
@@ -49,6 +58,12 @@ services:
       - ./uploads:/app/uploads
     environment:
       - FLASK_ENV=development
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   db:
     image: mysql:8.0
@@ -60,6 +75,12 @@ services:
     volumes:
       - dbdata:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin

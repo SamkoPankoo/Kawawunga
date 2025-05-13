@@ -1,6 +1,5 @@
 from pypdf import PdfReader, PdfWriter
 import os
-import uuid
 
 class DeletePagesOperations:
     def __init__(self, upload_folder):

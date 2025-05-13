@@ -4,10 +4,10 @@
       <v-col cols="12">
         <v-card>
           <v-card-title class="text-h5">
-            {{ $t('pdf.pdfToImage') }}
+            {{ $t('pdf.extractImages') }}
           </v-card-title>
           <v-card-text>
-            <p class="mb-4">{{ $t('pdf.pdfToImageDesc') }}</p>
+            <p class="mb-4">{{ $t('pdf.extractImagesDesc') }}</p>
 
             <v-file-input
                 v-model="selectedFile"
@@ -66,91 +66,34 @@
 
       <v-col cols="12" md="5">
         <v-card>
-          <v-card-title>{{ $t('pdf.conversionOptions') }}</v-card-title>
+          <v-card-title>{{ $t('pdf.extractOptions') }}</v-card-title>
           <v-card-text>
-            <v-select
-                v-model="outputFormat"
-                :items="formatOptions"
-                :label="$t('pdf.outputFormat')"
-                class="mb-4"
-            ></v-select>
-
-            <v-slider
-                v-model="dpi"
-                :label="$t('pdf.quality')"
-                min="72"
-                max="600"
-                :step="72"
-                thumb-label
-                class="mb-4"
-            >
-              <template v-slot:thumb-label>
-                {{ dpi }} DPI
-              </template>
-            </v-slider>
-
-            <v-divider class="my-4"></v-divider>
-
-            <h3 class="text-subtitle-1 font-weight-bold mb-2">{{ $t('pdf.pageSelection') }}</h3>
-            <v-select
-                v-model="pageSelection"
-                :items="pageSelectionOptions"
-                @update:model-value="updatePageRange"
-            ></v-select>
-
-            <template v-if="pageSelection === 'range'">
-              <v-row>
-                <v-col cols="6">
-                  <v-text-field
-                      v-model="pageRange.from"
-                      type="number"
-                      :label="$t('pdf.from')"
-                      min="1"
-                      :max="numPages"
-                      :rules="[rules.required, rules.validPage]"
-                  ></v-text-field>
-                </v-col>
-                <v-col cols="6">
-                  <v-text-field
-                      v-model="pageRange.to"
-                      type="number"
-                      :label="$t('pdf.to')"
-                      min="1"
-                      :max="numPages"
-                      :rules="[rules.required, rules.validPage, validateRange]"
-                  ></v-text-field>
-                </v-col>
-              </v-row>
-            </template>
-
-            <template v-if="pageSelection === 'custom'">
-              <v-text-field
-                  v-model="customPages"
-                  :label="$t('pdf.customPages')"
-                  :hint="$t('pdf.customPagesHint')"
-                  persistent-hint
-                  :rules="[rules.required, validateCustomPages]"
-              ></v-text-field>
-            </template>
-
             <v-switch
                 v-model="createZipFile"
                 :label="$t('pdf.createZipFile')"
-                class="mt-4"
-                :disabled="numPages <= 1"
+                class="mb-4"
             ></v-switch>
+
+            <v-alert
+                type="info"
+                variant="tonal"
+                class="mt-4"
+                icon="mdi-information"
+            >
+              {{ $t('pdf.extractImagesInfo') }}
+            </v-alert>
           </v-card-text>
           <v-card-actions class="px-4 pb-4">
             <v-spacer></v-spacer>
             <v-btn
                 color="primary"
-                :disabled="!canConvert || processing"
+                :disabled="!pdfInfo || processing"
                 :loading="processing"
-                @click="convertToImages"
-                prepend-icon="mdi-file-image"
+                @click="extractImages"
+                prepend-icon="mdi-image-multiple"
                 size="large"
             >
-              {{ $t('pdf.convert') }}
+              {{ $t('pdf.extractImages') }}
             </v-btn>
           </v-card-actions>
         </v-card>
@@ -164,8 +107,9 @@
           {{ $t('common.success') }}
         </v-card-title>
         <v-card-text>
-          <p>{{ $t('pdf.conversionComplete') }}</p>
-          <v-chip class="my-2" color="primary">{{ resultFiles.length }} {{ $t('pdf.imagesCreated') }}</v-chip>
+          <p>{{ $t('pdf.imagesExtracted', { count: resultFiles.length }) }}</p>
+
+          <v-chip class="my-2" color="primary">{{ resultFiles.length }} {{ $t('pdf.imagesFound') }}</v-chip>
 
           <v-expansion-panels v-if="resultFiles.length > 0" variant="accordion" class="mt-3">
             <v-expansion-panel title="Preview images">
@@ -179,7 +123,7 @@
                   >
                     <v-card elevation="0" class="pa-2" variant="outlined">
                       <v-img
-                          :src="`${apiBaseUrl}/download/${file.id}`"
+                          :src="`${import.meta.env.VITE_PYTHON_API_URL}/download/${file.id}`"
                           :alt="file.filename"
                           height="120"
                           cover
@@ -225,13 +169,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import pdf from 'vue-pdf-embed';
+import PdfEmbed from 'vue-pdf-embed';
 import { useAuthStore } from '../stores/auth';
-
-const apiBaseUrl = import.meta.env.VITE_PYTHON_API_URL;
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -245,91 +187,16 @@ const loading = ref(false);
 const error = ref(null);
 const fileId = ref(null);
 
-// Conversion options
-const outputFormat = ref('png');
-const dpi = ref(300);
-const pageSelection = ref('all');
-const pageRange = ref({ from: 1, to: 1 });
-const customPages = ref('');
+// Extract options
 const createZipFile = ref(true);
 const processing = ref(false);
 const showResultDialog = ref(false);
 const resultFiles = ref([]);
 const zipId = ref(null);
 
-const formatOptions = [
-  { title: 'PNG', value: 'png' },
-  { title: 'JPEG', value: 'jpg' }
-];
-
-const pageSelectionOptions = computed(() => [
-  { title: t('pdf.allPages'), value: 'all' },
-  { title: t('pdf.currentPage'), value: 'current' },
-  { title: t('pdf.pageRange'), value: 'range' },
-  { title: t('pdf.customPages'), value: 'custom' }
-]);
-
 const rules = {
-  required: value => !!value || t('validation.required'),
-  validPage: value => {
-    const page = parseInt(value);
-    return (page >= 1 && page <= numPages.value) || t('validation.pageRange', { max: numPages.value });
-  }
+  required: value => !!value || t('validation.required')
 };
-
-const validateRange = () => {
-  const start = parseInt(pageRange.value.from);
-  const end = parseInt(pageRange.value.to);
-  return start <= end || t('validation.startEndOrder');
-};
-
-const validateCustomPages = (value) => {
-  if (!value) return true;
-
-  // Check format (comma-separated numbers)
-  const pagePattern = /^(\d+)(,\s*\d+)*$/;
-  if (!pagePattern.test(value)) {
-    return t('validation.extractPagesFormat');
-  }
-
-  // Check if all page numbers are valid
-  const pages = value.split(',').map(p => parseInt(p.trim()));
-  const invalidPages = pages.filter(p => p < 1 || p > numPages.value);
-
-  if (invalidPages.length > 0) {
-    return t('validation.invalidPages', { pages: invalidPages.join(', '), max: numPages.value });
-  }
-
-  return true;
-};
-
-const canConvert = computed(() => {
-  if (!pdfInfo.value) return false;
-
-  if (pageSelection.value === 'range') {
-    const start = parseInt(pageRange.value.from);
-    const end = parseInt(pageRange.value.to);
-    return !isNaN(start) && !isNaN(end) && start >= 1 && end <= numPages.value && start <= end;
-  }
-
-  if (pageSelection.value === 'custom') {
-    return validateCustomPages(customPages.value) === true;
-  }
-
-  return true;
-});
-
-watch(numPages, (newValue) => {
-  if (newValue > 0) {
-    pageRange.value.to = newValue;
-  }
-});
-
-watch(currentPage, () => {
-  if (pageSelection.value === 'current') {
-    pageRange.value = { from: currentPage.value, to: currentPage.value };
-  }
-});
 
 const handleFileChange = () => {
   if (selectedFile.value) {
@@ -365,16 +232,6 @@ const nextPage = () => {
   }
 };
 
-const updatePageRange = () => {
-  if (pageSelection.value === 'all') {
-    pageRange.value = { from: 1, to: numPages.value };
-  } else if (pageSelection.value === 'current') {
-    pageRange.value = { from: currentPage.value, to: currentPage.value };
-  } else if (pageSelection.value === 'range') {
-    pageRange.value = { from: 1, to: numPages.value };
-  }
-};
-
 const uploadFile = async () => {
   if (!selectedFile.value) return;
 
@@ -386,7 +243,7 @@ const uploadFile = async () => {
     formData.append('pdf', selectedFile.value);
 
     const response = await axios.post(
-        `${apiBaseUrl}/upload`,
+        `${import.meta.env.VITE_PYTHON_API_URL}/upload`,
         formData,
         {
           headers: {
@@ -405,35 +262,15 @@ const uploadFile = async () => {
   }
 };
 
-const convertToImages = async () => {
+const extractImages = async () => {
   if (!fileId.value) return;
 
   processing.value = true;
   error.value = null;
 
   try {
-    let pages = [];
-
-    if (pageSelection.value === 'all') {
-      // All pages will be handled by the server
-    } else if (pageSelection.value === 'current') {
-      pages = [currentPage.value];
-    } else if (pageSelection.value === 'range') {
-      const start = parseInt(pageRange.value.from);
-      const end = parseInt(pageRange.value.to);
-
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-    } else if (pageSelection.value === 'custom') {
-      pages = customPages.value.split(',').map(p => parseInt(p.trim()));
-    }
-
     const requestData = {
       file_id: fileId.value,
-      format: outputFormat.value,
-      dpi: dpi.value,
-      pages: pages.length > 0 ? pages : null,
       create_zip: createZipFile.value
     };
 
@@ -447,7 +284,7 @@ const convertToImages = async () => {
     }
 
     const response = await axios.post(
-        `${apiBaseUrl}/pdf-to-image`,
+        `${import.meta.env.VITE_PYTHON_API_URL}/extract-images`,
         requestData,
         { headers }
     );
@@ -463,8 +300,8 @@ const convertToImages = async () => {
 
     showResultDialog.value = true;
   } catch (error) {
-    console.error('Error converting PDF to images:', error);
-    error.value = error.response?.data?.error || t('pdf.conversionError');
+    console.error('Error extracting images:', error);
+    error.value = error.response?.data?.error || t('pdf.extractImagesError');
   } finally {
     processing.value = false;
   }
@@ -475,14 +312,14 @@ const downloadResult = async () => {
     // If we have a ZIP file, download it
     if (zipId.value) {
       const response = await axios.get(
-          `${apiBaseUrl}/download-zip/${zipId.value}`,
+          `${import.meta.env.VITE_PYTHON_API_URL}/download-zip/${zipId.value}`,
           { responseType: 'blob' }
       );
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', 'pdf_images.zip');
+      link.setAttribute('download', 'extracted_images.zip');
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -491,7 +328,7 @@ const downloadResult = async () => {
     else if (resultFiles.value.length > 0) {
       const file = resultFiles.value[0];
       const response = await axios.get(
-          `${apiBaseUrl}/download/${file.id}`,
+          `${import.meta.env.VITE_PYTHON_API_URL}/download/${file.id}`,
           { responseType: 'blob' }
       );
 
@@ -508,7 +345,4 @@ const downloadResult = async () => {
     error.value = t('pdf.downloadError');
   }
 };
-
-// Initialize
-updatePageRange();
 </script>
