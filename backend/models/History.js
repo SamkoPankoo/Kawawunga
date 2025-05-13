@@ -38,6 +38,10 @@ const History = sequelize.define('History', {
     accessType: {
         type: DataTypes.ENUM('frontend', 'api'),
         allowNull: false
+    },
+    metadata: {
+        type: DataTypes.JSON,
+        allowNull: true
     }
 });
 

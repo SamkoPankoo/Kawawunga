@@ -48,7 +48,16 @@ User.beforeUpdate(async (user) => {
 
 // Method to validate password
 User.prototype.validatePassword = async function(password) {
-    return bcrypt.compare(password, this.password);
+    try {
+        if (!password || !this.password) {
+            console.error('Missing password data');
+            return false;
+        }
+        return await bcrypt.compare(password, this.password);
+    } catch (error) {
+        console.error('Password validation error:', error);
+        return false;
+    }
 };
 
 module.exports = User;

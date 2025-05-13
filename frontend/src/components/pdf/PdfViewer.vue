@@ -35,7 +35,7 @@
 
 <script setup>
 import { ref, watch } from 'vue';
-import pdf from 'vue-pdf';
+import PdfEmbed from 'vue-pdf-embed';
 
 const props = defineProps({
   pdfUrl: {

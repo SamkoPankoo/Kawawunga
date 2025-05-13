@@ -201,7 +201,7 @@
 import { ref, computed, watch } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import pdf from 'vue-pdf';
+import PdfEmbed from 'vue-pdf-embed';
 
 const { t } = useI18n();
 

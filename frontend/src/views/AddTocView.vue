@@ -4,10 +4,10 @@
       <v-col cols="12">
         <v-card>
           <v-card-title class="text-h5">
-            {{ $t('pdf.deletePages') }}
+            {{ $t('pdf.addToc') }}
           </v-card-title>
           <v-card-text>
-            <p class="mb-4">{{ $t('pdf.deletePagesDesc') }}</p>
+            <p class="mb-4">{{ $t('pdf.addTocDesc') }}</p>
 
             <v-file-input
                 v-model="selectedFile"
@@ -66,94 +66,69 @@
 
       <v-col cols="12" md="5">
         <v-card>
-          <v-card-title>{{ $t('pdf.deleteOptions') }}</v-card-title>
+          <v-card-title>{{ $t('pdf.tocOptions') }}</v-card-title>
           <v-card-text>
-            <v-select
-                v-model="deleteMethod"
-                :items="deleteMethodOptions"
-                :label="$t('pdf.deleteSelection')"
-                @update:model-value="updateDeleteMethod"
-            ></v-select>
+            <div v-for="(entry, index) in tocEntries" :key="index" class="mb-4">
+              <div class="d-flex align-center">
+                <span class="text-subtitle-1 mr-2">{{ $t('pdf.tocEntry') }} #{{ index + 1 }}</span>
+                <v-spacer></v-spacer>
+                <v-btn
+                    icon="mdi-delete"
+                    size="small"
+                    variant="text"
+                    color="error"
+                    @click="removeEntry(index)"
+                ></v-btn>
+              </div>
 
-            <template v-if="deleteMethod === 'current'">
-              <p class="text-body-2 mb-2">
-                {{ $t('pdf.currentPage') }}: {{ currentPage }}
-              </p>
-            </template>
-
-            <template v-if="deleteMethod === 'range'">
-              <v-row>
-                <v-col cols="6">
-                  <v-text-field
-                      v-model="pageRange.from"
-                      type="number"
-                      :label="$t('pdf.from')"
-                      min="1"
-                      :max="numPages"
-                      :rules="[rules.required, rules.validPage]"
-                  ></v-text-field>
-                </v-col>
-                <v-col cols="6">
-                  <v-text-field
-                      v-model="pageRange.to"
-                      type="number"
-                      :label="$t('pdf.to')"
-                      min="1"
-                      :max="numPages"
-                      :rules="[rules.required, rules.validPage, validateRange]"
-                  ></v-text-field>
-                </v-col>
-              </v-row>
-            </template>
-
-            <template v-if="deleteMethod === 'custom'">
               <v-text-field
-                  v-model="customPages"
-                  :label="$t('pdf.customPages')"
-                  :hint="$t('pdf.customPagesHint')"
-                  persistent-hint
-                  :rules="[rules.required, validateCustomPages]"
+                  v-model="entry.title"
+                  :label="$t('pdf.entryTitle')"
+                  class="mb-2"
+                  :rules="[rules.required]"
               ></v-text-field>
-            </template>
 
-            <template v-if="deleteMethod === 'select'">
-              <p class="text-body-2 mb-2">{{ $t('pdf.selectPagesToDelete') }}</p>
-              <v-row>
-                <v-col v-for="page in numPages" :key="page" cols="3" sm="2" class="text-center">
-                  <v-checkbox
-                      v-model="selectedPages"
-                      :value="page"
-                      :label="page.toString()"
-                      hide-details
-                      density="compact"
-                  ></v-checkbox>
-                </v-col>
-              </v-row>
-              <p class="text-caption mt-2">{{ $t('pdf.selectedPagesCount', { count: selectedPages.length }) }}</p>
-            </template>
+              <v-text-field
+                  v-model="entry.page"
+                  :label="$t('pdf.pageNumber')"
+                  type="number"
+                  :min="1"
+                  :max="numPages"
+                  :rules="[rules.required, rules.validPage]"
+              ></v-text-field>
+            </div>
 
-            <v-divider class="my-4"></v-divider>
+            <v-btn
+                block
+                variant="outlined"
+                color="primary"
+                prepend-icon="mdi-plus"
+                @click="addEntry"
+                class="mt-4"
+            >
+              {{ $t('pdf.addEntry') }}
+            </v-btn>
 
             <v-alert
-                v-if="numPages <= 1"
-                type="warning"
+                type="info"
                 variant="tonal"
-                class="mb-4"
+                class="mt-6"
+                icon="mdi-information"
             >
-              {{ $t('pdf.minPagesWarning') }}
+              {{ $t('pdf.tocInfo') }}
             </v-alert>
           </v-card-text>
           <v-card-actions class="px-4 pb-4">
             <v-spacer></v-spacer>
             <v-btn
                 color="primary"
-                :disabled="!canDeletePages || processing"
+                :disabled="!canAddToc || processing"
                 :loading="processing"
-                @click="deletePages"
-                prepend-icon="mdi-file-remove"
+                @click="addToc"
+                prepend-icon="mdi-view-list"
                 size="large"
             >
-              {{ $t('pdf.applyDelete') }}
+              {{ $t('pdf.createToc') }}
             </v-btn>
           </v-card-actions>
         </v-card>
@@ -167,7 +142,7 @@
           {{ $t('common.success') }}
         </v-card-title>
         <v-card-text>
-          <p>{{ $t('pdf.pagesDeleted') }}</p>
+          <p>{{ $t('pdf.tocAdded') }}</p>
           <p class="text-grey">{{ resultFilename }}</p>
         </v-card-text>
         <v-card-actions>
@@ -193,12 +168,14 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import PdfEmbed from 'vue-pdf-embed';
+import { useAuthStore } from '../stores/auth';
 
 const { t } = useI18n();
+const authStore = useAuthStore();
 
 const selectedFile = ref(null);
 const pdfUrl = ref(null);
@@ -209,22 +186,14 @@ const loading = ref(false);
 const error = ref(null);
 const fileId = ref(null);
 
-// Delete options
-const deleteMethod = ref('current');
-const pageRange = ref({ from: 1, to: 1 });
-const customPages = ref('');
-const selectedPages = ref([]);
+// TOC options
+const tocEntries = ref([
+  { title: '', page: 1 }
+]);
 const processing = ref(false);
 const showResultDialog = ref(false);
 const resultFileUrl = ref(null);
 const resultFilename = ref(null);
-
-const deleteMethodOptions = computed(() => [
-  { title: t('pdf.currentPage'), value: 'current' },
-  { title: t('pdf.pageRange'), value: 'range' },
-  { title: t('pdf.customPages'), value: 'custom' },
-  { title: t('pdf.selectPagesOption'), value: 'select' }
-]);
 
 const rules = {
   required: value => !!value || t('validation.required'),
@@ -234,62 +203,10 @@ const rules = {
   }
 };
 
-const validateRange = () => {
-  const start = parseInt(pageRange.value.from);
-  const end = parseInt(pageRange.value.to);
-  return start <= end || t('validation.startEndOrder');
-};
-
-const validateCustomPages = (value) => {
-  if (!value) return true;
-
-  // Check format (comma-separated numbers)
-  const pagePattern = /^(\d+)(,\s*\d+)*$/;
-  if (!pagePattern.test(value)) {
-    return t('validation.extractPagesFormat');
-  }
-
-  // Check if all page numbers are valid
-  const pages = value.split(',').map(p => parseInt(p.trim()));
-  const invalidPages = pages.filter(p => p < 1 || p > numPages.value);
-
-  if (invalidPages.length > 0) {
-    return t('validation.invalidPages', { pages: invalidPages.join(', '), max: numPages.value });
-  }
-
-  return true;
-};
-
-const canDeletePages = computed(() => {
-  if (!pdfInfo.value || numPages.value <= 1) return false;
-
-  if (deleteMethod.value === 'range') {
-    const start = parseInt(pageRange.value.from);
-    const end = parseInt(pageRange.value.to);
-    return !isNaN(start) && !isNaN(end) && start >= 1 && end <= numPages.value && start <= end;
-  }
-
-  if (deleteMethod.value === 'custom') {
-    return validateCustomPages(customPages.value) === true;
-  }
-
-  if (deleteMethod.value === 'select') {
-    return selectedPages.value.length > 0 && selectedPages.value.length < numPages.value;
-  }
-
-  return true;
-});
-
-watch(numPages, (newValue) => {
-  if (newValue > 0) {
-    pageRange.value.to = newValue;
-  }
-});
-
-watch(currentPage, () => {
-  if (deleteMethod.value === 'current') {
-    pageRange.value = { from: currentPage.value, to: currentPage.value };
-  }
+const canAddToc = computed(() => {
+  return pdfInfo.value &&
+      tocEntries.value.length > 0 &&
+      tocEntries.value.every(entry => entry.title.trim() !== '' && entry.page >= 1);
 });
 
 const handleFileChange = () => {
@@ -326,16 +243,12 @@ const nextPage = () => {
   }
 };
 
-const updateDeleteMethod = () => {
-  if (deleteMethod.value === 'current') {
-    pageRange.value = { from: currentPage.value, to: currentPage.value };
-  } else if (deleteMethod.value === 'range') {
-    pageRange.value = { from: 1, to: numPages.value };
-  } else if (deleteMethod.value === 'select') {
-    selectedPages.value = [currentPage.value];
-  } else {
-    customPages.value = '';
-  }
+const addEntry = () => {
+  tocEntries.value.push({ title: '', page: 1 });
+};
+
+const removeEntry = (index) => {
+  tocEntries.value.splice(index, 1);
 };
 
 const uploadFile = async () => {
@@ -368,46 +281,47 @@ const uploadFile = async () => {
   }
 };
 
-const deletePages = async () => {
+const addToc = async () => {
   if (!fileId.value) return;
 
   processing.value = true;
   error.value = null;
 
   try {
-    let pages = [];
-
-    if (deleteMethod.value === 'current') {
-      pages = [currentPage.value];
-    } else if (deleteMethod.value === 'range') {
-      const start = parseInt(pageRange.value.from);
-      const end = parseInt(pageRange.value.to);
-
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-    } else if (deleteMethod.value === 'custom') {
-      pages = customPages.value.split(',').map(p => parseInt(p.trim()));
-    } else if (deleteMethod.value === 'select') {
-      pages = [...selectedPages.value];
-    }
+    // Clean and format TOC entries
+    const validEntries = tocEntries.value
+        .filter(entry => entry.title.trim() !== '')
+        .map(entry => ({
+          title: entry.title.trim(),
+          page: parseInt(entry.page)
+        }));
 
     const requestData = {
       file_id: fileId.value,
-      pages: pages
+      toc_entries: validEntries
     };
 
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    // Add API key if user is authenticated
+    if (authStore.token) {
+      headers['X-API-Key'] = authStore.user?.apiKey;
+    }
+
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/remove-pages`,
-        requestData
+        `${import.meta.env.VITE_PYTHON_API_URL}/add-toc`,
+        requestData,
+        { headers }
     );
 
     resultFileUrl.value = response.data.id;
-    resultFilename.value = response.data.filename || 'pages_deleted.pdf';
+    resultFilename.value = response.data.filename || 'with_toc.pdf';
     showResultDialog.value = true;
   } catch (error) {
-    console.error('Error deleting pages:', error);
-    error.value = error.response?.data?.error || t('pdf.deleteError');
+    console.error('Error adding TOC:', error);
+    error.value = error.response?.data?.error || t('pdf.tocError');
   } finally {
     processing.value = false;
   }
@@ -434,7 +348,4 @@ const downloadResult = async () => {
     error.value = t('pdf.downloadError');
   }
 };
-
-// Inicializácia
-updateDeleteMethod();
 </script>

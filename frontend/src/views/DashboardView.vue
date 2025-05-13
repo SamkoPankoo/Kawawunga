@@ -16,7 +16,7 @@
                   color="primary"
                   class="ml-2 mt-2"
                   prepend-icon="mdi-folder-plus"
-                  :to="{ name: 'home' }"
+                  :to="{ name: 'editor' }"
               >
                 {{ $t('dashboard.newProject') }}
               </v-btn>
@@ -28,44 +28,8 @@
 
     <v-row>
       <v-col cols="12" md="8">
-        <v-card class="mb-6">
-          <v-card-title>
-            <v-icon start color="primary" class="mr-2">mdi-clock-outline</v-icon>
-            {{ $t('dashboard.recentActivity') }}
-          </v-card-title>
-          <v-divider></v-divider>
-          <v-card-text class="pa-0">
-            <v-list lines="two">
-              <v-list-item
-                  v-for="(activity, index) in recentActivities"
-                  :key="index"
-                  :title="activity.title"
-                  :subtitle="activity.date"
-              >
-                <template v-slot:prepend>
-                  <v-avatar color="grey-lighten-3">
-                    <v-icon :color="activity.iconColor">{{ activity.icon }}</v-icon>
-                  </v-avatar>
-                </template>
-                <template v-slot:append>
-                  <v-btn
-                      variant="text"
-                      size="small"
-                      color="primary"
-                      @click="openFile(activity)"
-                  >
-                    {{ $t('dashboard.open') }}
-                  </v-btn>
-                </template>
-              </v-list-item>
-
-              <div v-if="recentActivities.length === 0" class="pa-4 text-center">
-                <v-icon size="64" color="grey-lighten-2" class="mb-2">mdi-file-outline</v-icon>
-                <p>{{ $t('dashboard.noActivity') }}</p>
-              </div>
-            </v-list>
-          </v-card-text>
-        </v-card>
+        <!-- PDF History Component -->
+        <PdfHistoryComponent />
       </v-col>
 
       <v-col cols="12" md="4">
@@ -154,6 +118,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import axios from 'axios';
+import PdfHistoryComponent from '../views/PdfHistoryComponent.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -162,31 +127,6 @@ const user = computed(() => authStore.user);
 const apiKey = ref('');
 const showSnackbar = ref(false);
 const snackbarText = ref('');
-
-// Mock data - v reálnej aplikácii by ste tieto dáta získali z API
-const recentActivities = ref([
-  {
-    title: 'merged_2_files.pdf',
-    date: '10 minút',
-    icon: 'mdi-file-link',
-    iconColor: 'blue',
-    type: 'merge'
-  },
-  {
-    title: 'extracted_pages_1-3-5.pdf',
-    date: '2 hodiny',
-    icon: 'mdi-file-split',
-    iconColor: 'orange',
-    type: 'split'
-  },
-  {
-    title: 'rotated.pdf',
-    date: 'včera',
-    icon: 'mdi-rotate-right',
-    iconColor: 'green',
-    type: 'rotate'
-  }
-]);
 
 const quickFeatures = [
   {
@@ -208,7 +148,18 @@ const quickFeatures = [
     title: 'pdf.watermarkPdf',
     icon: 'mdi-format-color-highlight',
     route: '/editor/watermark'
-  }
+  },
+  {
+    title: 'pdf.protectPdf',
+    icon: 'mdi-lock',
+    route: '/editor/protect'
+  },
+  {
+    title: 'pdf.compressPdf',
+    icon: 'mdi-zip-box',
+    route: '/editor/compress'
+  },
+
 ];
 
 onMounted(async () => {
@@ -240,7 +191,7 @@ const generateNewApiKey = async () => {
 
     apiKey.value = response.data.apiKey;
     showSnackbar.value = true;
-    snackbarText.value = 'Nový API kľúč bol vygenerovaný';
+    snackbarText.value = 'New API key generated successfully';
   } catch (error) {
     console.error('Failed to generate new API key:', error);
   }
@@ -252,16 +203,10 @@ const copyApiKey = () => {
   navigator.clipboard.writeText(apiKey.value)
       .then(() => {
         showSnackbar.value = true;
-        snackbarText.value = 'API kľúč skopírovaný do schránky';
+        snackbarText.value = 'API key copied to clipboard';
       })
       .catch(err => {
         console.error('Could not copy API key: ', err);
       });
-};
-
-const openFile = (activity) => {
-  // Tu by sa mal otvoriť súbor na základe typu aktivity
-  // V reálnej aplikácii by ste presmerovali na príslušný editor s ID súboru
-  router.push({ name: activity.type + '-pdf' });
 };
 </script>

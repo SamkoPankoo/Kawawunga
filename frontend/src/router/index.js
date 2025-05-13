@@ -40,14 +40,12 @@ const routes = [
         component: () => import('../views/ApiDocsView.vue'),
         meta: { requiresAuth: true }
     },
-    // Pridaná chýbajúca "editor" routa
     {
         path: '/editor',
         name: 'editor',
         component: () => import('../views/EditorView.vue'),
         meta: { requiresAuth: true }
     },
-    // Editor routes
     {
         path: '/editor/merge',
         name: 'merge-pdf',
@@ -77,7 +75,58 @@ const routes = [
         name: 'delete-pages',
         component: () => import('../views/DeletePagesView.vue'),
         meta: { requiresAuth: true }
+    },
+    // New editor routes
+    {
+        path: '/editor/protect',
+        name: 'protect-pdf',
+        component: () => import('../views/ProtectPdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/compress',
+        name: 'compress-pdf',
+        component: () => import('../views/CompressPdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/metadata',
+        name: 'edit-metadata',
+        component: () => import('../views/EditMetadataView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/image-to-pdf',
+        name: 'image-to-pdf',
+        component: () => import('../views/ImageToPdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/pdf-to-image',
+        name: 'pdf-to-image',
+        component: () => import('../views/PdfToImageView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/edit-text',
+        name: 'edit-text',
+        component: () => import('../views/EditTextView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/add-toc',
+        name: 'add-toc',
+        component: () => import('../views/AddTocView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/extract-images',
+        name: 'extract-images',
+        component: () => import('../views/ExtractImagesView.vue'),
+        meta: { requiresAuth: true }
     }
+
+
 ]
 
 const router = createRouter({

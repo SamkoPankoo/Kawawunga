@@ -18,13 +18,28 @@ api.interceptors.request.use(config => {
 
 api.interceptors.response.use(
     response => response,
-    error => {
-        if (error.response?.status === 401) {
-            const authStore = useAuthStore()
-            authStore.logout()
+    async error => {
+        const originalRequest = error.config;
+
+        // If error is network error and we haven't retried yet
+        if ((error.message === 'Network Error' || error.code === 'ERR_NETWORK')
+            && !originalRequest._retry
+            && originalRequest.method.toLowerCase() === 'post') {
+            originalRequest._retry = true;
+            console.log('Network error, retrying in 2 seconds...');
+
+            // Wait 2 seconds before retrying
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return api(originalRequest);
         }
-        return Promise.reject(error)
+
+        if (error.response?.status === 401) {
+            const authStore = useAuthStore();
+            authStore.logout();
+        }
+
+        return Promise.reject(error);
     }
-)
+);
 
 export default api
