@@ -38,7 +38,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '../stores/auth';
+import {useAuthStore} from '@/stores/auth';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -67,7 +67,7 @@ const pdfTools = ref([
   },
   {
     id: 3,
-    icon: 'mdi-file-split',
+    icon: 'mdi-scissors-cutting',
     title: 'pdf.splitPdf',
     description: 'pdf.splitPdfDesc',
     route: '/editor/split'

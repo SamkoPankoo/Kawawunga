@@ -101,11 +101,13 @@
                   <p class="text-body-1">{{ $t(feature.description) }}</p>
                   <v-card variant="outlined" class="pa-4 my-2">
                     <h4 class="text-subtitle-1 font-weight-bold">Použitie:</h4>
-                    <ol class="text-body-1">
-                      <li v-for="(step, i) in feature.steps" :key="i">
-                        {{ step }}
-                      </li>
-                    </ol>
+                    <div class="pl-1">
+                      <ol class="text-body-1 pl-4">
+                        <li v-for="(step, i) in feature.steps" :key="i">
+                          {{ step }}
+                        </li>
+                      </ol>
+                    </div>
                   </v-card>
                 </div>
               </section>
@@ -171,9 +173,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, getCurrentInstance } from 'vue';
 import axios from 'axios';
-import html2pdf from 'html2pdf.js';
 
 const loading = ref(false);
 
@@ -281,8 +282,25 @@ const downloadPdf = async () => {
   loading.value = true;
 
   try {
+    // Dynamické načítanie html2pdf.js
+    // Toto riešenie používa dynamický import na načítanie knižnice len vtedy, keď je potrebná
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+    const html2pdf = window.html2pdf;
+
+
     // Získanie obsahu príručky
     const content = document.getElementById('user-guide-content');
+
+    // Odstránenie nepotrebných elementov pre PDF export
+    const clonedContent = content.cloneNode(true);
+    const buttonElements = clonedContent.querySelectorAll('button, .v-btn');
+    buttonElements.forEach(el => el.parentNode.removeChild(el));
 
     // Konfigurácia PDF
     const options = {
@@ -294,18 +312,57 @@ const downloadPdf = async () => {
     };
 
     // Generovanie PDF
-    await html2pdf().from(content).set(options).save();
+    // Použitie metódy from().set().save() namiesto priameho volania save()
+    await html2pdf()
+        .from(clonedContent)
+        .set(options)
+        .save();
+
+    // Pre logovanie tejto operácie do histórie
+    try {
+      // Get auth store
+      const authStore = useAuthStore();
+
+      // Make sure we have auth credentials
+      if (authStore.isAuthenticated) {
+        // Prepare headers with both token and API key (if available)
+        const headers = {};
+
+        if (authStore.token) {
+          headers['Authorization'] = `Bearer ${authStore.token}`;
+        }
+
+        if (authStore.user?.apiKey) {
+          headers['X-API-Key'] = authStore.user.apiKey;
+        }
+
+        // Only log if we have authentication
+        if (Object.keys(headers).length > 0) {
+          await axios.post(
+              `${import.meta.env.VITE_API_URL}/history/log`,
+              {
+                action: 'export-user-guide',
+                description: 'Exported user guide to PDF',
+                metadata: {
+                  operationType: 'export',
+                  timestamp: new Date().toISOString()
+                }
+              },
+              { headers }
+          );
+        }
+      }
+    } catch (logError) {
+      console.warn('Failed to log PDF export operation:', logError);
+    }
   } catch (error) {
     console.error('Error generating PDF:', error);
+    alert('Nastala chyba pri generovaní PDF. Prosím, skúste to znovu neskôr.');
   } finally {
     loading.value = false;
   }
 };
 
-// Načítanie obrázka z assets
-onMounted(() => {
-  // Tu môžete načítať potrebné dáta alebo vykonať inicializáciu
-});
 </script>
 
 <style scoped>
@@ -320,5 +377,26 @@ pre {
   padding: 10px;
   border-radius: 4px;
   font-family: monospace;
+}
+
+/* Oprava paddingu pro seznam uvnitř rámečků */
+v-card.pa-4 ol {
+  padding-left: 10rem !important;
+}
+
+
+/* Obecná úprava všech seznamů v dokumentu */
+.text-body-1 ol,
+.text-body-1 ul {
+  padding-left: 2rem;
+}
+
+/* Zajištění responzivity seznamů na menších obrazovkách */
+@media (max-width: 600px) {
+  v-card.pa-4 ol,
+  .text-body-1 ol,
+  .text-body-1 ul {
+    padding-left: 1.5rem;
+  }
 }
 </style>

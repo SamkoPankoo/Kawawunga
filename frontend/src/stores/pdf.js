@@ -13,7 +13,7 @@ export const usePdfStore = defineStore('pdf', () => {
         formData.append('pdf', file)
 
         try {
-            const response = await axios.post(`${import.meta.env.VITE_PYTHON_API_URL}/upload`, formData)
+            const response = await axios.post(`/python-api/upload`, formData)
             pdfData.value = response.data
         } catch (error) {
             console.error('Failed to upload PDF:', error)
@@ -22,7 +22,7 @@ export const usePdfStore = defineStore('pdf', () => {
 
     async function rotatePage(pageNumber) {
         try {
-            const response = await axios.post(`${import.meta.env.VITE_PYTHON_API_URL}/rotate`, {
+            const response = await axios.post(`/python-api/rotate`, {
                 file_id: pdfData.value.id,
                 page: pageNumber,
                 rotation: 90
@@ -35,7 +35,7 @@ export const usePdfStore = defineStore('pdf', () => {
 
     async function deletePage(pageNumber) {
         try {
-            const response = await axios.post(`${import.meta.env.VITE_PYTHON_API_URL}/delete-page`, {
+            const response = await axios.post(`/python-api/delete-page`, {
                 file_id: pdfData.value.id,
                 page: pageNumber
             })
@@ -51,7 +51,7 @@ export const usePdfStore = defineStore('pdf', () => {
         formData.append('file2', file)
 
         try {
-            const response = await axios.post(`${import.meta.env.VITE_PYTHON_API_URL}/merge`, formData)
+            const response = await axios.post(`/python-api/merge`, formData)
             pdfData.value = response.data
         } catch (error) {
             console.error('Failed to merge PDFs:', error)
@@ -60,7 +60,7 @@ export const usePdfStore = defineStore('pdf', () => {
 
     async function downloadPdf() {
         try {
-            const response = await axios.get(`${import.meta.env.VITE_PYTHON_API_URL}/download/${pdfData.value.id}`, {
+            const response = await axios.get(`/python-api/download/${pdfData.value.id}`, {
                 responseType: 'blob'
             })
 

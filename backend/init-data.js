@@ -1,28 +1,23 @@
 const User = require('./models/User');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 async function initializeAdmin() {
     try {
-        // Check if admin exists
+        // Kontrola existence admina
         const adminCount = await User.count({ where: { role: 'admin' } });
 
         if (adminCount === 0) {
             console.log('Admin user not found, creating default admin...');
 
-            // Create admin user
+            // Vytvoření admin uživatele
             const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
             const adminPassword = process.env.ADMIN_PASSWORD || 'adminpassword123';
 
-            // Hash password
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash(adminPassword, salt);
-
-            // Create user
+            // Vytvoření uživatele - hashování se provede automaticky v modelu
             const adminUser = await User.create({
                 email: adminEmail,
-                password: hashedPassword,
+                password: adminPassword,
                 role: 'admin',
                 apiKey: crypto.randomBytes(32).toString('hex')
             });

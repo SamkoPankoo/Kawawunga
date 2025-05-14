@@ -19,12 +19,24 @@
       </v-btn>
     </template>
 
+    <!-- Pridajte túto podmienku pre všetky autentifikované sekcie -->
     <template v-else>
+      <!-- Admin sekcia -->
+      <template v-if="authStore.isAdmin">
+        <v-btn text :to="{ name: 'admin-dashboard' }">
+          {{ $t('common.adminDashboard') }}
+        </v-btn>
+      </template>
+
+      <!-- Sekcia pre bežných používateľov (aj admin má tieto tlačidlá) -->
       <v-btn text :to="{ name: 'dashboard' }">
         {{ $t('common.dashboard') }}
       </v-btn>
       <v-btn text :to="{ name: 'editor' }">
         {{ $t('common.editor') }}
+      </v-btn>
+      <v-btn text :to="{ name: 'user-guide' }">
+        {{ $t('common.userGuide') }}
       </v-btn>
       <v-btn text :to="{ name: 'api-docs' }">
         {{ $t('common.apiDocs') }}
@@ -38,7 +50,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/auth'
+import { useAuthStore } from '@/stores/auth.js'
 import LanguageSwitcher from './LanguageSwitcher.vue'
 
 

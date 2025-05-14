@@ -1,19 +1,22 @@
-
-const sequelize = require('./config/database');
+const { connectWithRetry, syncDatabase } = require('./config/db-connection');
 const User = require('./models/User');
 const crypto = require('crypto');
 require('dotenv').config();
 
 async function seedDatabase() {
   try {
-    // Sync database
-    await sequelize.sync({ force: true });
+    // Připojení k databázi s opakovanými pokusy
+    await connectWithRetry();
+
+    // Synchronizace databáze
+    await syncDatabase({ force: true });
     console.log('Database synced successfully');
 
-    // Create admin user
+    // Vytvoření admin uživatele
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'adminpassword123';
 
+    // Model User automaticky zahashuje heslo díky beforeCreate hook
     const adminUser = await User.create({
       email: adminEmail,
       password: adminPassword,

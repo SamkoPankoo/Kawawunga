@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   frontend:
     build:
@@ -10,11 +12,12 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:3000/api
-      - VITE_PYTHON_API_URL=http://localhost:5000/
+      - VITE_API_URL=/api
+      - VITE_PYTHON_API_URL=/python-api
     depends_on:
-       backend:
-         condition: service_healthy
+      - backend
+      - python-service
+    restart: unless-stopped
 
   backend:
     build:
@@ -25,6 +28,8 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+      # Make sure the swagger.json file is properly mounted
+      - ./backend/swagger.json:/app/swagger.json
     environment:
       - NODE_ENV=development
       - DB_HOST=db
@@ -32,20 +37,15 @@ services:
       - DB_NAME=pdfeditor
       - DB_USER=root
       - DB_PASSWORD=rootpassword
-      - JWT_SECRET=your-super-secret-key-change-this
+      - JWT_SECRET=hskbdfhjklsgdfhksabdhjklbsadfk\hljcvb
       - ADMIN_EMAIL=admin@example.com
       - ADMIN_PASSWORD=adminpassword123
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
     depends_on:
       db:
         condition: service_healthy
       python-service:
         condition: service_started
+    restart: on-failure:5
 
   python-service:
     build:
@@ -56,31 +56,29 @@ services:
     volumes:
       - ./python-service:/app
       - ./uploads:/app/uploads
+      # Make sure the swagger.json file is properly mounted
+      - ./python-service/swagger.json:/app/swagger.json
     environment:
       - FLASK_ENV=development
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      - BACKEND_URL=http://backend:3000/api
+    restart: unless-stopped
 
   db:
     image: mysql:8.0
     ports:
       - "3306:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=rootpassword
-      - MYSQL_DATABASE=pdfeditor
+      MYSQL_ROOT_PASSWORD: "rootpassword"
+      MYSQL_DATABASE: "pdfeditor"
     volumes:
       - dbdata:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}" ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -93,6 +91,7 @@ services:
       - PMA_PASSWORD=rootpassword
     depends_on:
       - db
+    restart: unless-stopped
 
 volumes:
   dbdata:

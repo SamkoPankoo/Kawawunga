@@ -41,10 +41,28 @@ const History = sequelize.define('History', {
     },
     metadata: {
         type: DataTypes.JSON,
-        allowNull: true
+        allowNull: true,
+        get() {
+            const value = this.getDataValue('metadata');
+            if (value) {
+                if (typeof value === 'string') {
+                    try {
+                        return JSON.parse(value);
+                    } catch (e) {
+                        return value;
+                    }
+                }
+                return value;
+            }
+            return null;
+        },
+        set(value) {
+            this.setDataValue('metadata',
+                value ? (typeof value === 'string' ? value : JSON.stringify(value)) : null
+            );
+        }
     }
 });
-
 History.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(History, { foreignKey: 'userId' });
 

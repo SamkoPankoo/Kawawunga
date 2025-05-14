@@ -4,20 +4,25 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const sequelize = require('./config/database');
-const { connectWithRetry } = require('./config/database');
 const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
+const userRoutes = require('./models/User');
 const historyRoutes = require('./routes/history');
 const pdfLogsRoutes = require('./routes/pdfLogs');
 const apiKeyMiddleware = require('./middleware/apiKey');
 const { initializeAdmin } = require('./init-data');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
+
 try {
     console.log('Loading swagger document:', swaggerDocument);
 } catch (error) {
     console.error('Error loading swagger document:', error);
 }
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
+}));
 
 dotenv.config();
 
@@ -40,8 +45,27 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'PDF Editor API is running' });
 });
 
+app.get('/api/api-docs-spec', (req, res) => {
+    try {
+        res.json(require('./swagger.json'));
+    } catch (error) {
+        console.error('Error loading swagger document:', error);
+        res.status(500).json({ error: 'Failed to load API documentation' });
+    }
+});
 // Swagger API documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.get('/api-docs-spec', (req, res) => {
+    res.json(swaggerDocument);
+});
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    swaggerOptions: {
+        docExpansion: 'list',
+        filter: true,
+        showRequestDuration: true,
+    }
+}));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -52,9 +76,11 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 // Database sync and server start
+const { connectWithRetry, syncDatabase } = require('./config/db-connection');
+
 connectWithRetry()
+    .then(() => syncDatabase({ alter: true }))
     .then(async () => {
-        await sequelize.sync({ alter: true });
         console.log('Database connected and synced successfully');
 
         // Initialize admin user if it doesn't exist
@@ -65,7 +91,5 @@ connectWithRetry()
         });
     })
     .catch(err => {
-        console.error('Unable to connect to the database after multiple retries:', err);
-        process.exit(1);
+        console.error('Unable to connect to the database:', err);
     });
-

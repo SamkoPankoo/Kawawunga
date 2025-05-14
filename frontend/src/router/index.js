@@ -9,6 +9,12 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
+        path: '/admin-dashboard',
+        name: 'admin-dashboard',
+        component: () => import('../views/AdminDashboardView.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
         path: '/login',
         name: 'login',
         component: () => import('../views/LoginView.vue'),
@@ -106,52 +112,43 @@ const routes = [
         name: 'pdf-to-image',
         component: () => import('../views/PdfToImageView.vue'),
         meta: { requiresAuth: true }
-    },
-    {
-        path: '/editor/edit-text',
-        name: 'edit-text',
-        component: () => import('../views/EditTextView.vue'),
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/editor/add-toc',
-        name: 'add-toc',
-        component: () => import('../views/AddTocView.vue'),
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/editor/extract-images',
-        name: 'extract-images',
-        component: () => import('../views/ExtractImagesView.vue'),
-        meta: { requiresAuth: true }
     }
+
 
 
 ]
 
 const router = createRouter({
-    history: createWebHistory(),
+    history: createWebHistory(import.meta.env.BASE_URL),
     routes
 })
 
 router.beforeEach((to, from, next) => {
-    const authStore = useAuthStore()
+    const authStore = useAuthStore();
 
     if (to.matched.some(record => record.meta.requiresAuth)) {
+        // For routes requiring auth
         if (!authStore.isAuthenticated) {
-            next('/login')
+            // If not authenticated, redirect to login
+            next('/login');
+        } else if (to.matched.some(record => record.meta.requiresAdmin) && !authStore.isAdmin) {
+            // If route requires admin privileges but user is not admin
+            next('/dashboard');
         } else {
-            next()
+            // Otherwise proceed
+            next();
         }
     } else if (to.matched.some(record => record.meta.guest)) {
+        // For guest-only routes (like login/register)
         if (authStore.isAuthenticated) {
-            next('/')
+            next('/dashboard');
         } else {
-            next()
+            next();
         }
     } else {
-        next()
+        // For public routes
+        next();
     }
-})
+});
 
 export default router
