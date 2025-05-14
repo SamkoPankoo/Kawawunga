@@ -1279,6 +1279,116 @@ class PdfOperations:
 
         except Exception as e:
             raise Exception(f"Error adding password protection: {str(e)}")
+    def convert_pdf_to_images(self, file_id, format='png', dpi=300, pages=None, create_zip=True):
+        """
+        Convert PDF pages to images
+
+        Args:
+            file_id: ID of the PDF to convert
+            format: Output image format (png, jpg)
+            dpi: Image resolution (dots per inch)
+            pages: List of pages to convert (1-indexed), None for all pages
+            create_zip: Whether to create a ZIP archive for multiple images
+
+        Returns:
+            List of dictionaries with image file info
+        """
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+        pdf_file_path = file_info['filepath']
+
+        try:
+            # Calculate zoom factor from DPI (default PDF resolution is 72 DPI)
+            zoom = dpi / 72
+
+            # Create output folder for images
+            output_folder = os.path.join(self.upload_folder, f"images_{file_id}")
+            os.makedirs(output_folder, exist_ok=True)
+
+            # Open the PDF file with PyMuPDF
+            pdf_document = fitz.open(pdf_file_path)
+            total_pages = len(pdf_document)
+            result_files = []
+
+            # Normalize format
+            format = format.lower()
+            if format not in ['png', 'jpg', 'jpeg']:
+                format = 'png'  # Default to PNG if invalid format
+
+            # Set proper MIME type
+            mime_type = f"image/{format}"
+            if format == 'jpg':
+                mime_type = "image/jpeg"
+
+            # Determine which pages to convert
+            if pages is None:
+                # Convert all pages
+                pages_to_convert = range(total_pages)
+            else:
+                # Convert only specified pages (convert from 1-indexed to 0-indexed)
+                pages_to_convert = [p-1 for p in pages if 1 <= p <= total_pages]
+
+            # Process each page
+            for i in pages_to_convert:
+                # Get the page
+                page = pdf_document[i]
+
+                # Set the matrix for rendering (controls resolution)
+                matrix = fitz.Matrix(zoom, zoom)
+
+                # Render the page as a pixmap
+                pixmap = page.get_pixmap(matrix=matrix, alpha=False)
+
+                # Define the output filename
+                image_id = str(uuid.uuid4())
+                image_filename = f"page_{i+1}.{format}"
+                image_filepath = os.path.join(output_folder, image_filename)
+
+                # Save the pixmap as an image file
+                pixmap.save(image_filepath)
+
+                # Store metadata
+                image_info = {
+                    "id": image_id,
+                    "filename": image_filename,
+                    "filepath": image_filepath,
+                    "type": mime_type
+                }
+
+                self.pdf_storage[image_id] = image_info
+                result_files.append(image_info)
+
+            pdf_document.close()
+
+            # Create ZIP if needed and there are multiple files
+            if create_zip and len(result_files) > 1:
+                zip_id = str(uuid.uuid4())
+                zip_filename = f"images_{file_id}.zip"
+                zip_path = os.path.join(self.upload_folder, zip_filename)
+
+                with zipfile.ZipFile(zip_path, 'w') as zip_file:
+                    for file_info in result_files:
+                        zip_file.write(file_info['filepath'], file_info['filename'])
+
+                # Add zip info
+                zip_info = {
+                    "id": zip_id,
+                    "filename": zip_filename,
+                    "filepath": zip_path,
+                    "type": "application/zip"
+                }
+                self.pdf_storage[zip_id] = zip_info
+
+                # Add zip info to result files
+                for file_info in result_files:
+                    file_info['zip_id'] = zip_id
+
+            return result_files
+
+        except Exception as e:
+            raise Exception(f"Error converting PDF to images: {str(e)}")
     def get_file_path(self, file_id):
         """Get file path for download"""
         if file_id not in self.pdf_storage:

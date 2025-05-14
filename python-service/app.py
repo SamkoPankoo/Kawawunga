@@ -614,6 +614,162 @@ def add_watermark():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/pdf-to-image-zip', methods=['POST'])
+def pdf_to_image_zip():
+    try:
+        data = request.json
+        if not data or 'file_id' not in data:
+            return jsonify({'error': 'Missing required parameters'}), 400
+
+        file_id = data['file_id']
+        format = data.get('format', 'png')
+        dpi = int(data.get('dpi', 300))
+        pages = data.get('pages')
+
+        # Check if file exists
+        if file_id not in pdf_ops.pdf_storage:
+            return jsonify({'error': 'File not found'}), 404
+
+        # Convert PDF to images
+        result_files = pdf_ops.convert_pdf_to_images(file_id, format, dpi, pages, True)
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Log operation
+        log_operation(
+            api_key,
+            'pdf-to-image',
+            file_id,
+            pdf_ops.pdf_storage[file_id]['filename'],
+            f"Converted PDF to {len(result_files)} {format.upper()} images"
+        )
+
+        # Create a temporary ZIP file
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for file_info in result_files:
+                filepath = file_info['filepath']
+                filename = file_info['filename']
+                if os.path.exists(filepath):
+                    zip_file.write(filepath, filename)
+
+        # Seek to the beginning of the buffer
+        zip_buffer.seek(0)
+
+        # Create a response with the ZIP file
+        response = make_response(zip_buffer.getvalue())
+        response.headers.set('Content-Type', 'application/zip')
+        response.headers.set('Content-Disposition', 'attachment', filename='pdf_images.zip')
+
+        # Add CORS headers
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Expose-Headers', 'Content-Disposition')
+
+        return response
+
+    except Exception as e:
+        app.logger.error(f"Error creating ZIP file: {str(e)}")
+        return jsonify({'error': f'Error creating ZIP file: {str(e)}'}), 500
+
+@app.route('/pdf-to-image', methods=['POST', 'OPTIONS'])
+def pdf_to_image():
+    # Handle CORS preflight request
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, X-API-Key')
+        return response
+
+    try:
+        data = request.json
+        if not data or 'file_id' not in data:
+            return jsonify({'error': 'Missing required parameters'}), 400
+
+        file_id = data['file_id']
+
+        # Check if file exists in either system
+        if file_id not in pdf_ops.pdf_storage and file_id not in file_storage:
+            return jsonify({'error': 'File not found'}), 404
+
+        # Get conversion parameters
+        format = data.get('format', 'png')
+        dpi = data.get('dpi', 300)
+        create_zip = data.get('create_zip', True)
+
+        # Handle page selection
+        pages = None
+        if 'pages' in data:
+            pages = data['pages']
+            # Make sure pages are integers
+            if isinstance(pages, list):
+                pages = [int(p) for p in pages if isinstance(p, (int, str)) and str(p).isdigit()]
+
+        # Use the PdfOperations class to convert PDF to images
+        result_files = pdf_ops.convert_pdf_to_images(file_id, format, dpi, pages, create_zip)
+
+        # Also store in the old system for compatibility
+        for file_info in result_files:
+            if 'id' in file_info:
+                file_storage[file_info['id']] = file_info
+
+            # If there's zip info, store that too
+            if 'zip_id' in file_info:
+                zip_id = file_info['zip_id']
+                for other_file in result_files:
+                    if other_file.get('zip_id') == zip_id and 'zip_path' in other_file:
+                        zip_storage[zip_id] = {
+                            'id': zip_id,
+                            'filename': os.path.basename(other_file['zip_path']),
+                            'filepath': other_file['zip_path'],
+                            'type': 'application/zip'
+                        }
+                        break
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Get the original filename
+        file_name = None
+        if file_id in pdf_ops.pdf_storage:
+            file_name = pdf_ops.pdf_storage[file_id]['filename']
+        elif file_id in file_storage:
+            file_name = file_storage[file_id]['filename']
+        else:
+            file_name = "Unknown"
+
+        # Create descriptive message
+        page_count = len(pages) if pages else "all"
+        description = f"Converted {page_count} pages to {format.upper()} images ({dpi} DPI)"
+
+        # Log operation
+        log_operation(
+            api_key,
+            'pdf-to-image',
+            file_id,
+            file_name,
+            description
+        )
+
+        # Return metadata (excluding internal filepaths)
+        response_files = []
+        for file_info in result_files:
+            response_info = file_info.copy()
+            response_info.pop('filepath', None)
+            if 'zip_path' in response_info:
+                response_info.pop('zip_path', None)
+            response_files.append(response_info)
+
+        # Make sure any zip URL doesn't have double slash
+        for file_info in response_files:
+            if 'zip_id' in file_info:
+                file_info['zip_url'] = f"/download-zip/{file_info['zip_id']}"
+
+        return jsonify({"files": response_files})
+    except Exception as e:
+        app.logger.error(f"Error in pdf-to-image: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
     try:
         return send_file(
