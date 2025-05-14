@@ -1095,15 +1095,15 @@ def get_metadata_route(file_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api-docs', methods=['GET'])
-def api_docs():
-    # Read the Swagger JSON file if it exists
+@app.route('/api-docs-spec', methods=['GET'])
+def api_docs_spec():
     try:
         with open('swagger.json', 'r') as f:
             swagger_data = json.load(f)
         return jsonify(swagger_data)
-    except:
-        return jsonify({"error": "Swagger documentation not available"}), 404
+    except Exception as e:
+        app.logger.error(f"Error loading Swagger spec: {str(e)}")
+        return jsonify({"error": "Failed to load API documentation"}), 500
 
 def get_zip_path(self, zip_id):
     """Get zip file path for download"""
