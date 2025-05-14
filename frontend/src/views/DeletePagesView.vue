@@ -26,6 +26,7 @@
                 variant="tonal"
                 class="mb-4"
                 closable
+                @click:close="error = null"
             >
               {{ error }}
             </v-alert>
@@ -37,22 +38,28 @@
     <v-row v-if="pdfInfo">
       <v-col cols="12" md="7">
         <v-card>
-          <v-card-title>{{ $t('pdf.preview') }}</v-card-title>
+          <v-card-title class="d-flex align-center">
+            <span>{{ $t('pdf.preview') }}</span>
+            <v-spacer></v-spacer>
+            <v-chip v-if="isPreviewing" color="error" size="small" class="ml-2">
+              {{ $t('pdf.previewingDeletion') }}
+            </v-chip>
+          </v-card-title>
           <v-card-text>
-            <pdf
-                v-if="pdfUrl"
-                :src="pdfUrl"
+            <vue-pdf-embed
+                v-if="currentPreviewUrl"
+                :source="currentPreviewUrl"
                 :page="currentPage"
-                @num-pages="numPages = $event"
-                @page-loaded="pageLoaded"
+                @loaded="handlePdfLoaded"
+                @rendered="pageLoaded"
                 @error="handleError"
                 style="display: block; width: 100%;"
-            ></pdf>
+            ></vue-pdf-embed>
             <v-progress-circular
                 v-if="loading"
                 indeterminate
                 color="primary"
-                class="mt-5"
+                class="mt-5 d-flex mx-auto"
             ></v-progress-circular>
 
             <div class="d-flex justify-center align-center mt-4">
@@ -73,6 +80,7 @@
                 :items="deleteMethodOptions"
                 :label="$t('pdf.deleteSelection')"
                 @update:model-value="updateDeleteMethod"
+                :disabled="numPages <= 1"
             ></v-select>
 
             <template v-if="deleteMethod === 'current'">
@@ -91,6 +99,7 @@
                       min="1"
                       :max="numPages"
                       :rules="[rules.required, rules.validPage]"
+                      @update:model-value="previewDeletePages"
                   ></v-text-field>
                 </v-col>
                 <v-col cols="6">
@@ -101,6 +110,7 @@
                       min="1"
                       :max="numPages"
                       :rules="[rules.required, rules.validPage, validateRange]"
+                      @update:model-value="previewDeletePages"
                   ></v-text-field>
                 </v-col>
               </v-row>
@@ -113,23 +123,28 @@
                   :hint="$t('pdf.customPagesHint')"
                   persistent-hint
                   :rules="[rules.required, validateCustomPages]"
+                  @update:model-value="previewDeletePages"
               ></v-text-field>
             </template>
 
             <template v-if="deleteMethod === 'select'">
               <p class="text-body-2 mb-2">{{ $t('pdf.selectPagesToDelete') }}</p>
-              <v-row>
-                <v-col v-for="page in numPages" :key="page" cols="3" sm="2" class="text-center">
-                  <v-checkbox
-                      v-model="selectedPages"
-                      :value="page"
-                      :label="page.toString()"
-                      hide-details
-                      density="compact"
-                  ></v-checkbox>
-                </v-col>
-              </v-row>
-              <p class="text-caption mt-2">{{ $t('pdf.selectedPagesCount', { count: selectedPages.length }) }}</p>
+              <div class="page-selection-grid">
+                <v-checkbox
+                    v-for="page in numPages"
+                    :key="page"
+                    v-model="selectedPages"
+                    :value="page"
+                    :label="page.toString()"
+                    hide-details
+                    density="compact"
+                    class="page-checkbox"
+                    @update:model-value="previewDeletePages"
+                ></v-checkbox>
+              </div>
+              <p class="text-caption mt-2">
+                {{ $t('pdf.selectedPagesCount', { count: selectedPages.length }) }}
+              </p>
             </template>
 
             <v-divider class="my-4"></v-divider>
@@ -141,6 +156,15 @@
                 class="mb-4"
             >
               {{ $t('pdf.minPagesWarning') }}
+            </v-alert>
+
+            <v-alert
+                v-else-if="totalPagesToDelete >= numPages"
+                type="warning"
+                variant="tonal"
+                class="mb-4"
+            >
+              {{ $t('pdf.cannotDeleteAllPages') }}
             </v-alert>
           </v-card-text>
           <v-card-actions class="px-4 pb-4">
@@ -169,6 +193,7 @@
         <v-card-text>
           <p>{{ $t('pdf.pagesDeleted') }}</p>
           <p class="text-grey">{{ resultFilename }}</p>
+          <p>{{ $t('pdf.pagesDeletedDetails', { count: getPagesToDelete().length, total: numPagesOriginal }) }}</p>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -189,25 +214,47 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <LogOperation
+        v-if="operationSuccess"
+        :operation="'delete'"
+        :description="getLogDescription()"
+        :metadata="getLogMetadata()"
+    />
   </v-container>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import pdf from 'vue-pdf';
-
+import VuePdfEmbed from 'vue-pdf-embed';
+import { useAuthStore } from '@/stores/auth';
+import LogOperation from '@/components/pdf/LogOperation.vue';
+const operationSuccess = ref(false);
+const resultFileId = ref(null);
 const { t } = useI18n();
+const authStore = useAuthStore();
 
 const selectedFile = ref(null);
 const pdfUrl = ref(null);
 const pdfInfo = ref(null);
 const currentPage = ref(1);
 const numPages = ref(0);
+const numPagesOriginal = ref(0);
 const loading = ref(false);
 const error = ref(null);
 const fileId = ref(null);
+
+// For live preview
+const previewPdfUrl = ref(null);
+const isPreviewing = ref(false);
+const previewPending = ref(false);
+const previewTimeout = ref(null);
+
+// Current preview that's being displayed
+const currentPreviewUrl = computed(() => {
+  return previewPdfUrl.value || pdfUrl.value;
+});
 
 // Delete options
 const deleteMethod = ref('current');
@@ -232,6 +279,21 @@ const rules = {
     const page = parseInt(value);
     return (page >= 1 && page <= numPages.value) || t('validation.pageRange', { max: numPages.value });
   }
+};
+
+const getLogDescription = () => {
+  const pagesToDelete = getPagesToDelete();
+  return `Deleted ${pagesToDelete.length} pages from ${numPagesOriginal.value}-page document`;
+};
+
+const getLogMetadata = () => {
+  return {
+    fileName: selectedFile.value?.name,
+    deleteMethod: deleteMethod.value,
+    deletedPages: getPagesToDelete(),
+    resultFileName: resultFilename.value,
+    timestamp: new Date().toISOString()
+  };
 };
 
 const validateRange = () => {
@@ -260,8 +322,46 @@ const validateCustomPages = (value) => {
   return true;
 };
 
+// Get pages to delete based on the current selection method
+const getPagesToDelete = () => {
+  let pages = [];
+
+  if (deleteMethod.value === 'current') {
+    pages = [currentPage.value];
+  } else if (deleteMethod.value === 'range') {
+    const start = parseInt(pageRange.value.from);
+    const end = parseInt(pageRange.value.to);
+
+    if (!isNaN(start) && !isNaN(end) && start >= 1 && end <= numPages.value) {
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+    }
+  } else if (deleteMethod.value === 'custom') {
+    if (validateCustomPages(customPages.value) === true) {
+      pages = customPages.value.split(',').map(p => parseInt(p.trim()));
+    }
+  } else if (deleteMethod.value === 'select') {
+    pages = [...selectedPages.value];
+  }
+
+  return pages;
+};
+
+// Calculate total pages to delete
+const totalPagesToDelete = computed(() => {
+  return getPagesToDelete().length;
+});
+
 const canDeletePages = computed(() => {
   if (!pdfInfo.value || numPages.value <= 1) return false;
+
+  const pagesToDelete = getPagesToDelete();
+
+  // Can't delete if no pages selected or all pages would be deleted
+  if (pagesToDelete.length === 0 || pagesToDelete.length >= numPages.value) {
+    return false;
+  }
 
   if (deleteMethod.value === 'range') {
     const start = parseInt(pageRange.value.from);
@@ -280,27 +380,59 @@ const canDeletePages = computed(() => {
   return true;
 });
 
-watch(numPages, (newValue) => {
+watch(() => numPages.value, (newValue) => {
   if (newValue > 0) {
     pageRange.value.to = newValue;
+    numPagesOriginal.value = newValue;
   }
 });
 
-watch(currentPage, () => {
+watch(() => currentPage.value, () => {
   if (deleteMethod.value === 'current') {
     pageRange.value = { from: currentPage.value, to: currentPage.value };
+    previewDeletePages();
   }
 });
+
+// Watch for changes in delete options to update preview
+watch([
+  () => deleteMethod.value,
+  () => pageRange.value.from,
+  () => pageRange.value.to,
+  () => customPages.value,
+  () => selectedPages.value
+], () => {
+  previewDeletePages();
+}, { deep: true });
 
 const handleFileChange = () => {
   if (selectedFile.value) {
+    // Reset various states
+    if (previewPdfUrl.value) {
+      URL.revokeObjectURL(previewPdfUrl.value);
+      previewPdfUrl.value = null;
+    }
+    isPreviewing.value = false;
+    selectedPages.value = [];
+    currentPage.value = 1;
+
+    // Create a URL for the PDF
     pdfUrl.value = URL.createObjectURL(selectedFile.value);
     uploadFile();
   } else {
     pdfUrl.value = null;
+    previewPdfUrl.value = null;
     pdfInfo.value = null;
     fileId.value = null;
   }
+};
+
+const handlePdfLoaded = (e) => {
+  numPages.value = e.numPages;
+  if (!numPagesOriginal.value) {
+    numPagesOriginal.value = e.numPages;
+  }
+  pageLoaded();
 };
 
 const pageLoaded = () => {
@@ -310,6 +442,7 @@ const pageLoaded = () => {
 const handleError = (err) => {
   console.error('PDF error:', err);
   loading.value = false;
+  error.value = t('pdf.pdfLoadError');
 };
 
 const prevPage = () => {
@@ -336,6 +469,9 @@ const updateDeleteMethod = () => {
   } else {
     customPages.value = '';
   }
+
+  // Update preview after changing method
+  previewDeletePages();
 };
 
 const uploadFile = async () => {
@@ -349,7 +485,7 @@ const uploadFile = async () => {
     formData.append('pdf', selectedFile.value);
 
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/upload`,
+        `/python-api/upload`,
         formData,
         {
           headers: {
@@ -360,12 +496,90 @@ const uploadFile = async () => {
 
     fileId.value = response.data.id;
     pdfInfo.value = response.data;
+
+    // Initialize options after upload
+    updateDeleteMethod();
   } catch (error) {
     console.error('Error uploading PDF:', error);
     error.value = error.response?.data?.error || t('pdf.uploadError');
   } finally {
     loading.value = false;
   }
+};
+
+// Function to create live preview of pages to delete
+const previewDeletePages = () => {
+  // Debounce preview requests
+  if (previewTimeout.value) {
+    clearTimeout(previewTimeout.value);
+  }
+
+  previewTimeout.value = setTimeout(async () => {
+    if (!fileId.value || previewPending.value) return;
+
+    // Only preview if we have valid pages to delete
+    const pagesToDelete = getPagesToDelete();
+
+    if (pagesToDelete.length === 0 || pagesToDelete.length >= numPages.value) {
+      if (previewPdfUrl.value) {
+        URL.revokeObjectURL(previewPdfUrl.value);
+        previewPdfUrl.value = null;
+        isPreviewing.value = false;
+      }
+      return;
+    }
+
+    previewPending.value = true;
+
+    try {
+      const requestData = {
+        file_id: fileId.value,
+        pages: pagesToDelete
+      };
+
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      // Add API key if user is authenticated
+      if (authStore.token) {
+        headers['X-API-Key'] = authStore.user?.apiKey;
+      }
+
+      const response = await axios.post(
+          `/python-api/preview-remove-pages`,
+          requestData,
+          { headers }
+      );
+
+      // Get the preview PDF
+      if (response.data && response.data.id) {
+        const previewResponse = await axios.get(
+            `/python-api/download/${response.data.id}`,
+            { responseType: 'blob' }
+        );
+
+        // If we had a previous preview, revoke its URL
+        if (previewPdfUrl.value) {
+          URL.revokeObjectURL(previewPdfUrl.value);
+        }
+
+        // Create a new object URL for the preview
+        previewPdfUrl.value = URL.createObjectURL(new Blob([previewResponse.data]));
+        isPreviewing.value = true;
+      }
+    } catch (err) {
+      console.error('Error creating delete preview:', err);
+      // If preview fails, just use the original PDF
+      if (previewPdfUrl.value) {
+        URL.revokeObjectURL(previewPdfUrl.value);
+        previewPdfUrl.value = null;
+        isPreviewing.value = false;
+      }
+    } finally {
+      previewPending.value = false;
+    }
+  }, 500); // 500ms debounce
 };
 
 const deletePages = async () => {
@@ -375,35 +589,59 @@ const deletePages = async () => {
   error.value = null;
 
   try {
-    let pages = [];
+    const pagesToDelete = getPagesToDelete();
 
-    if (deleteMethod.value === 'current') {
-      pages = [currentPage.value];
-    } else if (deleteMethod.value === 'range') {
-      const start = parseInt(pageRange.value.from);
-      const end = parseInt(pageRange.value.to);
-
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-    } else if (deleteMethod.value === 'custom') {
-      pages = customPages.value.split(',').map(p => parseInt(p.trim()));
-    } else if (deleteMethod.value === 'select') {
-      pages = [...selectedPages.value];
+    if (pagesToDelete.length === 0 || pagesToDelete.length >= numPages.value) {
+      error.value = t('pdf.invalidDeleteSelection');
+      processing.value = false;
+      return;
     }
 
     const requestData = {
       file_id: fileId.value,
-      pages: pages
+      pages: pagesToDelete
     };
 
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    // Add API key if user is authenticated
+    if (authStore.token) {
+      headers['X-API-Key'] = authStore.user?.apiKey;
+    }
+
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/remove-pages`,
-        requestData
+        `/python-api/remove-pages`,
+        requestData,
+        { headers }
     );
 
     resultFileUrl.value = response.data.id;
+    resultFileId.value = response.data.id;
+    operationSuccess.value = true;
     resultFilename.value = response.data.filename || 'pages_deleted.pdf';
+
+    // Update the preview to show the final PDF with pages deleted
+    const finalPdfResponse = await axios.get(
+        `/python-api/download/${response.data.id}`,
+        { responseType: 'blob' }
+    );
+
+    // If we had a previous preview, revoke its URL
+    if (previewPdfUrl.value) {
+      URL.revokeObjectURL(previewPdfUrl.value);
+    }
+
+    // Create a new object URL for the final PDF
+    previewPdfUrl.value = URL.createObjectURL(new Blob([finalPdfResponse.data]));
+    isPreviewing.value = false;
+
+    // Update fileId to point to the new PDF with pages deleted
+    fileId.value = response.data.id;
+    pdfInfo.value = response.data;
+
+    // Show result dialog
     showResultDialog.value = true;
   } catch (error) {
     console.error('Error deleting pages:', error);
@@ -418,7 +656,7 @@ const downloadResult = async () => {
 
   try {
     const response = await axios.get(
-        `${import.meta.env.VITE_PYTHON_API_URL}/download/${resultFileUrl.value}`,
+        `/python-api/download/${resultFileUrl.value}`,
         { responseType: 'blob' }
     );
 
@@ -429,12 +667,44 @@ const downloadResult = async () => {
     document.body.appendChild(link);
     link.click();
     link.remove();
+
+    // Clean up the URL
+    URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Error downloading file:', error);
     error.value = t('pdf.downloadError');
   }
 };
 
-// Inicializácia
+// Clean up object URLs when component is destroyed
+onBeforeUnmount(() => {
+  if (pdfUrl.value) {
+    URL.revokeObjectURL(pdfUrl.value);
+  }
+  if (previewPdfUrl.value) {
+    URL.revokeObjectURL(previewPdfUrl.value);
+  }
+
+  // Clear any pending timers
+  if (previewTimeout.value) {
+    clearTimeout(previewTimeout.value);
+  }
+});
+
+// Initialize
 updateDeleteMethod();
 </script>
+
+<style scoped>
+.page-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.page-checkbox {
+  margin: 4px 0;
+}
+</style>
+

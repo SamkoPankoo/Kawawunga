@@ -92,6 +92,7 @@
       </v-col>
     </v-row>
 
+
     <v-dialog v-model="showResultDialog" max-width="500">
       <v-card>
         <v-card-title class="text-h5">
@@ -121,6 +122,18 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <LogOperation
+        v-if="operationSuccess"
+        operation="merge"
+        :description="`Merged ${selectedFiles.length} PDF files`"
+        :metadata="{
+      files: selectedFiles.map(f => f.name),
+      fileCount: selectedFiles.length,
+      resultId: resultFileId
+    }"
+        @logged="handleLogged"
+        @error="handleLogError"
+    />
   </v-container>
 </template>
 
@@ -128,6 +141,8 @@
 import { ref } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
+import LogOperation from '@/components/pdf/LogOperation.vue';
+const BACKEND_URL = 'http://localhost:3000/api';
 
 const { t } = useI18n();
 
@@ -139,6 +154,12 @@ const resultFileUrl = ref(null);
 const error = ref(null);
 const mergedFileName = ref('merged.pdf');
 
+
+const resultFileId = ref(null);  // Store the result file ID for logging
+const operationSuccess = ref(false);  // To trigger the LogOperation component
+
+import { useAuthStore } from '@/stores/auth';
+const authStore = useAuthStore();
 const rules = {
   required: value => !!value && value.length > 0 || t('validation.required')
 };
@@ -186,6 +207,11 @@ const mergePdfs = async () => {
   error.value = null;
 
   try {
+    // Check authentication status
+    if (!authStore.isAuthenticated) {
+      console.warn("User not authenticated, logging may fail");
+    }
+
     const formData = new FormData();
     selectedFiles.value.forEach((file, index) => {
       formData.append(`file${index + 1}`, file);
@@ -202,17 +228,27 @@ const mergePdfs = async () => {
 
     formData.append('output_filename', mergedFileName.value);
 
+    // Process PDF merge through Python service
+    // Note: We're using axios directly here since the Python service is separate from our API
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/merge`,
+        `/python-api/merge`, // This is a proxy path
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data'
+            'Content-Type': 'multipart/form-data',
+            'X-API-Key': authStore.user?.apiKey
           }
         }
     );
 
     resultFileUrl.value = response.data.id;
+    resultFileId.value = response.data.id;
+
+    // Use our LogOperation component to handle the logging
+    // The operationSuccess flag will trigger the component
+    operationSuccess.value = true;
+
+    // Show the success dialog
     showResultDialog.value = true;
   } catch (error) {
     console.error('Error merging PDFs:', error);
@@ -222,12 +258,21 @@ const mergePdfs = async () => {
   }
 };
 
+
+const handleLogged = () => {
+  console.log('Operation logged successfully');
+};
+
+const handleLogError = (error) => {
+  console.error('Failed to log operation:', error);
+};
+
 const downloadResult = async () => {
   if (!resultFileUrl.value) return;
 
   try {
     const response = await axios.get(
-        `${import.meta.env.VITE_PYTHON_API_URL}/download/${resultFileUrl.value}`,
+        `/python-api/download/${resultFileUrl.value}`,
         { responseType: 'blob' }
     );
 
@@ -247,6 +292,6 @@ const downloadResult = async () => {
 
 <style scoped>
 .selected-file {
-  background-color: rgba(var(--v-theme-primary), 0.1);
+  background-color: rgba(255, 255, 1, 0.1);
 }
 </style>

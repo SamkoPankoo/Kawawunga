@@ -37,17 +37,23 @@
     <v-row v-if="pdfInfo">
       <v-col cols="12" md="7">
         <v-card>
-          <v-card-title>{{ $t('pdf.preview') }}</v-card-title>
+          <v-card-title class="d-flex align-center">
+            <span>{{ $t('pdf.preview') }}</span>
+            <v-spacer></v-spacer>
+            <v-chip v-if="isPreviewRotated" color="success" size="small" class="ml-2">
+              {{ $t('pdf.previewRotated') }}
+            </v-chip>
+          </v-card-title>
           <v-card-text>
-            <pdf
-                v-if="pdfUrl"
-                :src="pdfUrl"
+            <vue-pdf-embed
+                v-if="currentPreviewUrl"
+                :source="currentPreviewUrl"
                 :page="currentPage"
-                @num-pages="numPages = $event"
-                @page-loaded="pageLoaded"
+                @loaded="numPages = $event.numPages"
+                @rendered="pageLoaded"
                 @error="handleError"
                 style="display: block; width: 100%;"
-            ></pdf>
+            ></vue-pdf-embed>
             <v-progress-circular
                 v-if="loading"
                 indeterminate
@@ -73,6 +79,7 @@
                 v-model="rotationAngle"
                 mandatory
                 class="mb-4"
+                @update:model-value="previewRotation"
             >
               <v-radio
                   :label="$t('pdf.rotate90')"
@@ -94,7 +101,7 @@
             <v-select
                 v-model="pageSelection"
                 :items="pageSelectionOptions"
-                @update:model-value="updatePageRange"
+                @update:model-value="updatePageRangeAndPreview"
             ></v-select>
 
             <template v-if="pageSelection === 'range'">
@@ -107,6 +114,7 @@
                       min="1"
                       :max="numPages"
                       :rules="[rules.required, rules.validPage]"
+                      @update:model-value="previewRotation"
                   ></v-text-field>
                 </v-col>
                 <v-col cols="6">
@@ -117,6 +125,7 @@
                       min="1"
                       :max="numPages"
                       :rules="[rules.required, rules.validPage, validateRange]"
+                      @update:model-value="previewRotation"
                   ></v-text-field>
                 </v-col>
               </v-row>
@@ -129,6 +138,7 @@
                   :hint="$t('pdf.customPagesHint')"
                   persistent-hint
                   :rules="[rules.required, validateCustomPages]"
+                  @update:model-value="previewRotation"
               ></v-text-field>
             </template>
 
@@ -142,6 +152,7 @@
                       :label="page.toString()"
                       hide-details
                       density="compact"
+                      @update:model-value="previewRotation"
                   ></v-checkbox>
                 </v-col>
               </v-row>
@@ -194,14 +205,22 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <LogOperation
+        v-if="operationSuccess"
+        :operation="'rotate'"
+        :description="getLogDescription()"
+        :metadata="getLogMetadata()"
+        @logged="handleLogged"
+        @error="handleLogError"
+    />
   </v-container>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import {ref, computed, watch, onBeforeUnmount} from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import pdf from 'vue-pdf';
+import VuePdfEmbed from 'vue-pdf-embed';
 
 const { t } = useI18n();
 
@@ -214,7 +233,19 @@ const loading = ref(false);
 const error = ref(null);
 const fileId = ref(null);
 
-// Rotation options
+// For live preview
+const previewPdfUrl = ref(null);
+const isPreviewRotated = ref(false);
+const previewPending = ref(false);
+const previewTimeout = ref(null);
+
+// Current preview that's being displayed
+const currentPreviewUrl = computed(() => {
+  return previewPdfUrl.value || pdfUrl.value;
+});
+import LogOperation from '@/components/pdf/LogOperation.vue';
+const operationSuccess = ref(false);
+const resultFileId = ref(null);
 const rotationAngle = ref(90);
 const pageSelection = ref('all');
 const pageRange = ref({ from: 1, to: 1 });
@@ -240,7 +271,39 @@ const rules = {
     return (page >= 1 && page <= numPages.value) || t('validation.pageRange', { max: numPages.value });
   }
 };
+const getLogDescription = () => {
+  let pageDesc = '';
+  if (pageSelection.value === 'all') {
+    pageDesc = `all ${numPages.value} pages`;
+  } else if (pageSelection.value === 'current') {
+    pageDesc = `page ${currentPage.value}`;
+  } else if (pageSelection.value === 'range') {
+    pageDesc = `pages ${pageRange.value.from} to ${pageRange.value.to}`;
+  } else if (pageSelection.value === 'custom') {
+    pageDesc = `pages ${customPages.value}`;
+  } else if (pageSelection.value === 'select') {
+    pageDesc = `${selectedPages.value.length} selected pages`;
+  }
+  return `Rotated ${pageDesc} by ${rotationAngle.value}°`;
+};
 
+const getLogMetadata = () => {
+  return {
+    fileName: selectedFile.value?.name,
+    angle: rotationAngle.value,
+    pageSelection: pageSelection.value,
+    resultFile: resultFilename.value,
+    timestamp: new Date().toISOString()
+  };
+};
+
+const handleLogged = () => {
+  console.log('Operation logged successfully');
+};
+
+const handleLogError = (error) => {
+  console.error('Failed to log operation:', error);
+};
 const validateRange = () => {
   const start = parseInt(pageRange.value.from);
   const end = parseInt(pageRange.value.to);
@@ -296,17 +359,23 @@ watch(numPages, (newValue) => {
 watch(currentPage, () => {
   if (pageSelection.value === 'current') {
     pageRange.value = { from: currentPage.value, to: currentPage.value };
+    previewRotation();
   }
 });
 
 const handleFileChange = () => {
   if (selectedFile.value) {
     pdfUrl.value = URL.createObjectURL(selectedFile.value);
+    // Reset preview when changing file
+    previewPdfUrl.value = null;
+    isPreviewRotated.value = false;
     uploadFile();
   } else {
     pdfUrl.value = null;
+    previewPdfUrl.value = null;
     pdfInfo.value = null;
     fileId.value = null;
+    isPreviewRotated.value = false;
   }
 };
 
@@ -333,6 +402,11 @@ const nextPage = () => {
   }
 };
 
+const updatePageRangeAndPreview = () => {
+  updatePageRange();
+  previewRotation();
+};
+
 const updatePageRange = () => {
   if (pageSelection.value === 'all') {
     pageRange.value = { from: 1, to: numPages.value };
@@ -354,7 +428,7 @@ const uploadFile = async () => {
     formData.append('pdf', selectedFile.value);
 
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/upload`,
+        `/python-api/upload`,
         formData,
         {
           headers: {
@@ -365,12 +439,100 @@ const uploadFile = async () => {
 
     fileId.value = response.data.id;
     pdfInfo.value = response.data;
+
+    // Initial preview after upload
+    previewRotation();
   } catch (error) {
     console.error('Error uploading PDF:', error);
     error.value = error.response?.data?.error || t('pdf.uploadError');
   } finally {
     loading.value = false;
   }
+};
+
+// Function to create live preview of rotation
+const previewRotation = () => {
+  // Debounce preview requests
+  if (previewTimeout.value) {
+    clearTimeout(previewTimeout.value);
+  }
+
+  previewTimeout.value = setTimeout(async () => {
+    if (!fileId.value || previewPending.value) return;
+
+    // Only preview if we have valid rotation settings
+    if (!canRotatePages.value) {
+      if (previewPdfUrl.value) {
+        URL.revokeObjectURL(previewPdfUrl.value);
+        previewPdfUrl.value = null;
+        isPreviewRotated.value = false;
+      }
+      return;
+    }
+
+    previewPending.value = true;
+
+    try {
+      let pages = [];
+      let pageRanges = [];
+
+      if (pageSelection.value === 'all') {
+        // No need for explicit pages, we'll rotate all
+      } else if (pageSelection.value === 'current') {
+        pages = [currentPage.value];
+      } else if (pageSelection.value === 'range') {
+        pageRanges = [{
+          start: parseInt(pageRange.value.from),
+          end: parseInt(pageRange.value.to)
+        }];
+      } else if (pageSelection.value === 'custom') {
+        pages = customPages.value.split(',').map(p => parseInt(p.trim()));
+      } else if (pageSelection.value === 'select') {
+        pages = [...selectedPages.value];
+      }
+
+      const requestData = {
+        file_id: fileId.value,
+        angle: rotationAngle.value,
+        page_selection: pageSelection.value,
+        pages: pages,
+        page_ranges: pageRanges,
+        preview_only: true // Add a flag to indicate this is just a preview
+      };
+
+      const response = await axios.post(
+          `/python-api/rotate`,
+          requestData
+      );
+
+      // Get the preview PDF
+      if (response.data && response.data.id) {
+        const previewResponse = await axios.get(
+            `/python-api/download/${response.data.id}`,
+            { responseType: 'blob' }
+        );
+
+        // If we had a previous preview, revoke its URL
+        if (previewPdfUrl.value) {
+          URL.revokeObjectURL(previewPdfUrl.value);
+        }
+
+        // Create a new object URL for the preview
+        previewPdfUrl.value = URL.createObjectURL(new Blob([previewResponse.data]));
+        isPreviewRotated.value = true;
+      }
+    } catch (err) {
+      console.error('Error creating rotation preview:', err);
+      // If preview fails, just use the original PDF
+      if (previewPdfUrl.value) {
+        URL.revokeObjectURL(previewPdfUrl.value);
+        previewPdfUrl.value = null;
+        isPreviewRotated.value = false;
+      }
+    } finally {
+      previewPending.value = false;
+    }
+  }, 500); // 500ms debounce
 };
 
 const rotatePages = async () => {
@@ -407,13 +569,33 @@ const rotatePages = async () => {
     };
 
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/rotate`,
+        `/python-api/rotate`,
         requestData
     );
 
     resultFileUrl.value = response.data.id;
     resultFilename.value = response.data.filename || 'rotated.pdf';
     showResultDialog.value = true;
+
+    // Update the preview to show the final rotated PDF
+    const finalPdfResponse = await axios.get(
+        `/python-api/download/${response.data.id}`,
+        { responseType: 'blob' }
+    );
+
+    // If we had a previous preview, revoke its URL
+    if (previewPdfUrl.value) {
+      URL.revokeObjectURL(previewPdfUrl.value);
+    }
+
+    // Create a new object URL for the final rotated PDF
+    previewPdfUrl.value = URL.createObjectURL(new Blob([finalPdfResponse.data]));
+    isPreviewRotated.value = true;
+
+    // Update fileId to point to the new rotated PDF
+    fileId.value = response.data.id;
+    pdfInfo.value = response.data;
+
   } catch (error) {
     console.error('Error rotating PDF:', error);
     error.value = error.response?.data?.error || t('pdf.rotateError');
@@ -427,7 +609,7 @@ const downloadResult = async () => {
 
   try {
     const response = await axios.get(
-        `${import.meta.env.VITE_PYTHON_API_URL}/download/${resultFileUrl.value}`,
+        `/python-api/download/${resultFileUrl.value}`,
         { responseType: 'blob' }
     );
 
@@ -438,12 +620,25 @@ const downloadResult = async () => {
     document.body.appendChild(link);
     link.click();
     link.remove();
+
+    // Clean up the URL
+    URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Error downloading file:', error);
     error.value = t('pdf.downloadError');
   }
 };
 
-// Inicializácia
+// Clean up object URLs when component is destroyed
+onBeforeUnmount(() => {
+  if (pdfUrl.value) {
+    URL.revokeObjectURL(pdfUrl.value);
+  }
+  if (previewPdfUrl.value) {
+    URL.revokeObjectURL(previewPdfUrl.value);
+  }
+});
+
+// Initialize
 updatePageRange();
 </script>

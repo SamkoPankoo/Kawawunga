@@ -37,17 +37,23 @@
     <v-row v-if="pdfInfo">
       <v-col cols="12" md="7">
         <v-card>
-          <v-card-title>{{ $t('pdf.preview') }}</v-card-title>
+          <v-card-title class="d-flex align-center">
+            <span>{{ $t('pdf.preview') }}</span>
+            <v-spacer></v-spacer>
+            <v-chip v-if="isPreviewWatermarked" color="success" size="small" class="ml-2">
+              {{ $t('pdf.previewWatermarked') }}
+            </v-chip>
+          </v-card-title>
           <v-card-text>
-            <pdf
-                v-if="pdfUrl"
-                :src="pdfUrl"
+            <vue-pdf-embed
+                v-if="currentPreviewUrl"
+                :source="currentPreviewUrl"
                 :page="currentPage"
-                @num-pages="numPages = $event"
-                @page-loaded="pageLoaded"
+                @loaded="numPages = $event.numPages"
+                @rendered="pageLoaded"
                 @error="handleError"
                 style="display: block; width: 100%;"
-            ></pdf>
+            ></vue-pdf-embed>
             <v-progress-circular
                 v-if="loading"
                 indeterminate
@@ -73,6 +79,7 @@
                 :label="$t('pdf.watermarkText')"
                 :rules="[rules.required]"
                 class="mb-2"
+                @update:model-value="updateWatermarkPreview"
             ></v-text-field>
 
             <v-slider
@@ -83,12 +90,14 @@
                 step="5"
                 thumb-label
                 class="mb-4"
+                @update:model-value="updateWatermarkPreview"
             ></v-slider>
 
             <v-radio-group
                 v-model="watermarkAngle"
                 :label="$t('pdf.watermarkAngle')"
                 inline
+                @update:model-value="updateWatermarkPreview"
             >
               <v-radio
                   :label="$t('pdf.horizontal')"
@@ -112,6 +121,7 @@
                 item-value="value"
                 return-object
                 class="mb-4"
+                @update:model-value="updateWatermarkPreview"
             >
               <template v-slot:selection="{ item }">
                 <div class="d-flex align-center">
@@ -141,6 +151,7 @@
                 :items="sizeOptions"
                 :label="$t('pdf.watermarkSize')"
                 class="mb-4"
+                @update:model-value="updateWatermarkPreview"
             ></v-select>
 
             <v-divider class="my-4"></v-divider>
@@ -149,7 +160,7 @@
                 v-model="pageSelection"
                 :items="pageSelectionOptions"
                 :label="$t('pdf.pageSelection')"
-                @update:model-value="updatePageRange"
+                @update:model-value="updatePageRangeAndPreview"
             ></v-select>
 
             <v-row v-if="pageSelection === 'range'">
@@ -161,6 +172,7 @@
                     min="1"
                     :max="numPages"
                     :rules="[rules.required, rules.validPage]"
+                    @update:model-value="updateWatermarkPreview"
                 ></v-text-field>
               </v-col>
               <v-col cols="6">
@@ -171,6 +183,7 @@
                     min="1"
                     :max="numPages"
                     :rules="[rules.required, rules.validPage, validateRange]"
+                    @update:model-value="updateWatermarkPreview"
                 ></v-text-field>
               </v-col>
             </v-row>
@@ -183,6 +196,7 @@
                     :hint="$t('pdf.customPagesHint')"
                     persistent-hint
                     :rules="[rules.required, validateCustomPages]"
+                    @update:model-value="updateWatermarkPreview"
                 ></v-text-field>
               </v-col>
             </v-row>
@@ -233,14 +247,20 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <LogOperation
+        v-if="operationSuccess"
+        :operation="'watermark'"
+        :description="getLogDescription()"
+        :metadata="getLogMetadata()"
+    />
   </v-container>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import pdf from 'vue-pdf';
+import VuePdfEmbed from 'vue-pdf-embed';
 
 const { t } = useI18n();
 
@@ -252,6 +272,21 @@ const numPages = ref(0);
 const loading = ref(false);
 const error = ref(null);
 const fileId = ref(null);
+
+import LogOperation from '@/components/pdf/LogOperation.vue';
+const operationSuccess = ref(false);
+const resultFileId = ref(null);
+
+// For live preview
+const previewPdfUrl = ref(null);
+const isPreviewWatermarked = ref(false);
+const previewPending = ref(false);
+const previewTimeout = ref(null);
+
+// Current preview that's being displayed
+const currentPreviewUrl = computed(() => {
+  return previewPdfUrl.value || pdfUrl.value;
+});
 
 // Watermark options
 const watermarkText = ref('CONFIDENTIAL');
@@ -288,6 +323,36 @@ const pageSelectionOptions = computed(() => [
   { title: t('pdf.pageRange'), value: 'range' },
   { title: t('pdf.customPages'), value: 'custom' }
 ]);
+
+const getLogDescription = () => {
+  let pageDesc = '';
+  if (pageSelection.value === 'all') {
+    pageDesc = `all ${numPages.value} pages`;
+  } else if (pageSelection.value === 'current') {
+    pageDesc = `page ${currentPage.value}`;
+  } else if (pageSelection.value === 'range') {
+    pageDesc = `pages ${pageRange.value.from} to ${pageRange.value.to}`;
+  } else if (pageSelection.value === 'custom') {
+    pageDesc = `pages ${customPages.value}`;
+  }
+  return `Added "${watermarkText.value}" watermark to ${pageDesc}`;
+};
+
+const getLogMetadata = () => {
+  return {
+    fileName: selectedFile.value?.name,
+    watermarkText: watermarkText.value,
+    watermarkOptions: {
+      opacity: watermarkOpacity.value,
+      color: watermarkColor.value?.value,
+      size: watermarkSize.value,
+      angle: watermarkAngle.value
+    },
+    pageSelection: pageSelection.value,
+    resultFile: resultFilename.value,
+    timestamp: new Date().toISOString()
+  };
+};
 
 const rules = {
   required: value => !!value || t('validation.required'),
@@ -348,17 +413,23 @@ watch(numPages, (newValue) => {
 watch(currentPage, () => {
   if (pageSelection.value === 'current') {
     pageRange.value = { from: currentPage.value, to: currentPage.value };
+    updateWatermarkPreview();
   }
 });
 
 const handleFileChange = () => {
   if (selectedFile.value) {
     pdfUrl.value = URL.createObjectURL(selectedFile.value);
+    // Reset preview when changing file
+    previewPdfUrl.value = null;
+    isPreviewWatermarked.value = false;
     uploadFile();
   } else {
     pdfUrl.value = null;
+    previewPdfUrl.value = null;
     pdfInfo.value = null;
     fileId.value = null;
+    isPreviewWatermarked.value = false;
   }
 };
 
@@ -385,6 +456,11 @@ const nextPage = () => {
   }
 };
 
+const updatePageRangeAndPreview = () => {
+  updatePageRange();
+  updateWatermarkPreview();
+};
+
 const updatePageRange = () => {
   if (pageSelection.value === 'all') {
     pageRange.value = { from: 1, to: numPages.value };
@@ -406,7 +482,7 @@ const uploadFile = async () => {
     formData.append('pdf', selectedFile.value);
 
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/upload`,
+        `/python-api/upload`,
         formData,
         {
           headers: {
@@ -417,12 +493,101 @@ const uploadFile = async () => {
 
     fileId.value = response.data.id;
     pdfInfo.value = response.data;
+
+    // Create initial watermark preview
+    updateWatermarkPreview();
   } catch (error) {
     console.error('Error uploading PDF:', error);
     error.value = error.response?.data?.error || t('pdf.uploadError');
   } finally {
     loading.value = false;
   }
+};
+
+// Function to create live preview of watermark
+const updateWatermarkPreview = () => {
+  // Debounce preview requests
+  if (previewTimeout.value) {
+    clearTimeout(previewTimeout.value);
+  }
+
+  previewTimeout.value = setTimeout(async () => {
+    if (!fileId.value || previewPending.value) return;
+
+    // Only preview if we have valid watermark settings
+    if (!canApplyWatermark.value) {
+      if (previewPdfUrl.value) {
+        URL.revokeObjectURL(previewPdfUrl.value);
+        previewPdfUrl.value = null;
+        isPreviewWatermarked.value = false;
+      }
+      return;
+    }
+
+    previewPending.value = true;
+
+    try {
+      let pages = [];
+
+      if (pageSelection.value === 'all') {
+        pages = Array.from({ length: numPages.value }, (_, i) => i + 1);
+      } else if (pageSelection.value === 'current') {
+        pages = [currentPage.value];
+      } else if (pageSelection.value === 'range') {
+        const start = parseInt(pageRange.value.from);
+        const end = parseInt(pageRange.value.to);
+
+        for (let i = start; i <= end; i++) {
+          pages.push(i);
+        }
+      } else if (pageSelection.value === 'custom') {
+        pages = customPages.value.split(',').map(p => parseInt(p.trim()));
+      }
+
+      const requestData = {
+        file_id: fileId.value,
+        text: watermarkText.value,
+        opacity: watermarkOpacity.value / 100,
+        color: watermarkColor.value.value,
+        size: watermarkSize.value,
+        angle: parseInt(watermarkAngle.value),
+        pages: pages,
+        preview_only: true // Add a flag to indicate this is just a preview
+      };
+
+      const response = await axios.post(
+          `/python-api/watermark`,
+          requestData
+      );
+
+      // Get the preview PDF
+      if (response.data && response.data.id) {
+        const previewResponse = await axios.get(
+            `/python-api/download/${response.data.id}`,
+            { responseType: 'blob' }
+        );
+
+        // If we had a previous preview, revoke its URL
+        if (previewPdfUrl.value) {
+          URL.revokeObjectURL(previewPdfUrl.value);
+        }
+
+        // Create a new object URL for the preview
+        previewPdfUrl.value = URL.createObjectURL(new Blob([previewResponse.data]));
+        isPreviewWatermarked.value = true;
+      }
+    } catch (err) {
+      console.error('Error creating watermark preview:', err);
+      // If preview fails, just use the original PDF
+      if (previewPdfUrl.value) {
+        URL.revokeObjectURL(previewPdfUrl.value);
+        previewPdfUrl.value = null;
+        isPreviewWatermarked.value = false;
+      }
+    } finally {
+      previewPending.value = false;
+    }
+  }, 500); // 500ms debounce
 };
 
 const applyWatermark = async () => {
@@ -460,13 +625,35 @@ const applyWatermark = async () => {
     };
 
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/watermark`,
+        `/python-api/watermark`,
         requestData
     );
 
     resultFileUrl.value = response.data.id;
+    resultFileId.value = response.data.id;
+    operationSuccess.value = true;
     resultFilename.value = response.data.filename || 'watermarked.pdf';
     showResultDialog.value = true;
+
+    // Update the preview to show the final watermarked PDF
+    const finalPdfResponse = await axios.get(
+        `/python-api/download/${response.data.id}`,
+        { responseType: 'blob' }
+    );
+
+    // If we had a previous preview, revoke its URL
+    if (previewPdfUrl.value) {
+      URL.revokeObjectURL(previewPdfUrl.value);
+    }
+
+    // Create a new object URL for the final watermarked PDF
+    previewPdfUrl.value = URL.createObjectURL(new Blob([finalPdfResponse.data]));
+    isPreviewWatermarked.value = true;
+
+    // Update fileId to point to the new watermarked PDF
+    fileId.value = response.data.id;
+    pdfInfo.value = response.data;
+
   } catch (error) {
     console.error('Error applying watermark:', error);
     error.value = error.response?.data?.error || t('pdf.watermarkError');
@@ -480,7 +667,7 @@ const downloadResult = async () => {
 
   try {
     const response = await axios.get(
-        `${import.meta.env.VITE_PYTHON_API_URL}/download/${resultFileUrl.value}`,
+        `/python-api/download/${resultFileUrl.value}`,
         { responseType: 'blob' }
     );
 
@@ -491,9 +678,25 @@ const downloadResult = async () => {
     document.body.appendChild(link);
     link.click();
     link.remove();
+
+    // Clean up the URL
+    URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Error downloading file:', error);
     error.value = t('pdf.downloadError');
   }
 };
+
+// Clean up object URLs when component is destroyed
+onBeforeUnmount(() => {
+  if (pdfUrl.value) {
+    URL.revokeObjectURL(pdfUrl.value);
+  }
+  if (previewPdfUrl.value) {
+    URL.revokeObjectURL(previewPdfUrl.value);
+  }
+});
+
+// Initialize
+updatePageRange();
 </script>
