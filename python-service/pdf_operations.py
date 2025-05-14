@@ -495,6 +495,129 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error splitting PDF: {str(e)}")
 
+    def rotate_pdf(self, file_id, angle=90, pages=None, preview_only=False):
+        """Rotate pages in a PDF file"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Convert angle to integer if it's a string
+            if isinstance(angle, str):
+                try:
+                    angle = int(angle)
+                except ValueError:
+                    angle = 90  # Default to 90 degrees if invalid
+
+            # Normalize angle to 0, 90, 180, or 270
+            angle = angle % 360
+
+            # Try with PyMuPDF first
+            try:
+                doc = fitz.open(file_info['filepath'])
+                total_pages = len(doc)
+
+                # Determine which pages to rotate
+                if pages is None or not pages:
+                    pages = list(range(1, total_pages + 1))
+
+                # Validate pages
+                pages = [p for p in pages if 1 <= p <= total_pages]
+
+                if not pages:
+                    raise Exception("No valid pages to rotate")
+
+                # Apply rotation
+                for page_num in pages:
+                    # PyMuPDF uses 0-based indexing
+                    page = doc[page_num - 1]
+
+                    # Get current rotation
+                    current_rotation = page.rotation
+
+                    # Calculate new rotation (fitz uses 0, 90, 180, 270)
+                    new_rotation = (current_rotation + angle) % 360
+
+                    # Apply the rotation
+                    page.set_rotation(new_rotation)
+
+                # For preview, use a temporary filename with "preview_" prefix
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_rotated_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"rotated_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                doc.save(output_path)
+                doc.close()
+
+            except Exception as e:
+                # If PyMuPDF fails, try with PyPDF
+                reader = PdfReader(file_info['filepath'])
+                writer = PdfWriter()
+
+                total_pages = len(reader.pages)
+
+                # Determine which pages to rotate
+                if pages is None or not pages:
+                    pages = list(range(1, total_pages + 1))
+
+                # Validate pages
+                pages = [p for p in pages if 1 <= p <= total_pages]
+
+                if not pages:
+                    raise Exception("No valid pages to rotate")
+
+                # Add all pages, rotating the selected ones
+                for i in range(total_pages):
+                    page = reader.pages[i]
+
+                    # If this page should be rotated
+                    if i + 1 in pages:
+                        # Get current rotation
+                        current_rotation = page.rotation if hasattr(page, 'rotation') else 0
+
+                        # Calculate new rotation
+                        new_rotation = (current_rotation + angle) % 360
+
+                        # Apply rotation
+                        page.rotate(new_rotation)
+
+                    writer.add_page(page)
+
+                # For preview, use a temporary filename with "preview_" prefix
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_rotated_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"rotated_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                with open(output_path, 'wb') as output_file:
+                    writer.write(output_file)
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": total_pages,
+                "filepath": output_path,
+                "preview": preview_only
+            }
+
+            # Store in pdf_storage (even previews, they'll be cleaned up later)
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error rotating PDF: {str(e)}")
+
     def get_file_path(self, file_id):
         """Get file path for download"""
         if file_id not in self.pdf_storage:

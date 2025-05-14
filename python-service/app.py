@@ -457,7 +457,77 @@ def split_pdf():
 
         return jsonify({"files": response_files})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/rotate', methods=['POST'])
+def rotate_pdf():
+    data = request.json
+    if not data or 'file_id' not in data:
+        return jsonify({'error': 'Missing required parameters'}), 400
+
+    file_id = data['file_id']
+
+    # Check if file exists in either system
+    if file_id not in pdf_ops.pdf_storage and file_id not in file_storage:
+        return jsonify({'error': 'File not found'}), 404
+
+    # Get rotation parameters
+    angle = data.get('rotation', 90)  # For compatibility with frontend
+    if 'angle' in data:  # If explicit angle is provided
+        angle = data['angle']
+
+    # Handle page selection
+    pages = None
+    if 'page' in data:  # Single page
+        pages = [int(data['page'])]
+    elif 'pages' in data:  # Multiple pages
+        pages = data['pages']
+
+    try:
+        # Use the PdfOperations class to rotate PDF
+        pdf_info = pdf_ops.rotate_pdf(file_id, angle, pages)
+
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Get original filename for better description
+        original_filename = "unknown"
+        if file_id in pdf_ops.pdf_storage:
+            original_filename = pdf_ops.pdf_storage[file_id].get('filename', 'unknown')
+
+        # Create detailed description
+        page_desc = "all pages"
+        if pages:
+            if len(pages) == 1:
+                page_desc = f"page {pages[0]}"
+            else:
+                page_desc = f"{len(pages)} pages"
+
+        description = f"Rotated {page_desc} by {angle}° in {original_filename}"
+
+        # Log with full details
+        log_success = logger_log_operation(
+            api_key=api_key,
+            action='rotate',
+            description=description,
+            file_id=pdf_info['id'],
+            file_name=pdf_info['filename'],
+            operation_type='rotate'
+        )
+
+        if not log_success:
+            print("WARNING: Failed to log rotate operation")
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/download/<file_id>', methods=['GET'])
 def download_pdf(file_id):
