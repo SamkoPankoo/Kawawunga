@@ -7,15 +7,21 @@ const apiKeyMiddleware = async (req, res, next) => {
         const apiKey = req.headers['x-api-key'];
 
         if (!apiKey) {
+            console.error('API key missing in request headers');
             return res.status(401).json({ message: 'API key required' });
         }
+
+        // Debug výpis
+        console.log(`Received API request with key: ${apiKey.substring(0, 10)}...`);
 
         const user = await User.findOne({ where: { apiKey } });
 
         if (!user) {
+            console.error(`Invalid API key: ${apiKey.substring(0, 10)}... not found in database`);
             return res.status(401).json({ message: 'Invalid API key' });
         }
 
+        console.log(`API key authenticated for user: ${user.email} (ID: ${user.id})`);
         req.user = user;
 
         // Log API access
@@ -33,7 +39,7 @@ const apiKeyMiddleware = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error(error);
+        console.error('API key authentication error:', error);
         res.status(401).json({ message: 'API authentication failed' });
     }
 };

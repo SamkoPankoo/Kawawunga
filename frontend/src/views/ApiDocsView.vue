@@ -33,22 +33,22 @@
               {{ $t('apiDocs.openInNewTab') }}
             </v-btn>
           </v-card-title>
-          <v-card-text class="pa-4">
-            <v-alert type="info" class="mb-4" icon="mdi-information">
-              {{ $t('apiDocs.iframeError') }}
-              <div class="mt-3">
-                <v-btn
-                    color="primary"
-                    :href="backendSwaggerUrl"
-                    target="_blank"
-                    prepend-icon="mdi-open-in-new"
-                    size="large"
-                    class="mr-2"
-                >
-                  {{ $t('apiDocs.openDirectly') }}
-                </v-btn>
-              </div>
-            </v-alert>
+          <v-card-text class="pa-0">
+            <div id="backend-swagger-ui" class="swagger-container"></div>
+            <div v-if="!swaggerLoaded.backend" class="text-center pa-6">
+              <v-progress-circular indeterminate color="primary" class="mb-4"></v-progress-circular>
+              <p>{{ $t('apiDocs.iframeError') }}</p>
+              <v-btn
+                  color="primary"
+                  :href="backendSwaggerUrl"
+                  target="_blank"
+                  prepend-icon="mdi-open-in-new"
+                  size="large"
+                  class="mt-3"
+              >
+                {{ $t('apiDocs.openDirectly') }}
+              </v-btn>
+            </div>
           </v-card-text>
         </v-card>
       </v-window-item>
@@ -72,17 +72,21 @@
             </v-btn>
           </v-card-title>
           <v-card-text class="pa-0">
-            <v-alert v-if="iframeError" type="warning" class="ma-4">
-              {{ $t('apiDocs.iframeError') }}
-            </v-alert>
-            <iframe
-                v-else
-                :src="pythonSwaggerUrl"
-                class="swagger-iframe"
-                frameborder="0"
-                @load="checkIframeLoaded"
-                @error="iframeError = true"
-            ></iframe>
+            <div id="python-swagger-ui" class="swagger-container"></div>
+            <div v-if="!swaggerLoaded.python" class="text-center pa-6">
+              <v-progress-circular indeterminate color="primary" class="mb-4"></v-progress-circular>
+              <p>{{ $t('apiDocs.iframeError') }}</p>
+              <v-btn
+                  color="primary"
+                  :href="pythonSwaggerUrl"
+                  target="_blank"
+                  prepend-icon="mdi-open-in-new"
+                  size="large"
+                  class="mt-3"
+              >
+                {{ $t('apiDocs.openDirectly') }}
+              </v-btn>
+            </div>
           </v-card-text>
         </v-card>
       </v-window-item>
@@ -91,52 +95,138 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watchEffect } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 
 const activeTab = ref('backend');
-const iframeError = ref(false);
-
-// Metoda pro kontrolu načtení iframe
-const checkIframeLoaded = (event) => {
-  try {
-    // Pokus o přístup k obsahu iframe pro ověření, zda byl správně načten
-    const iframeContent = event.target.contentDocument || event.target.contentWindow.document;
-    iframeError.value = false;
-  } catch (e) {
-    // Pokud dojde k chybě, pravděpodobně se jedná o problém s CSP
-    console.error('Chyba při načítání iframe:', e);
-    iframeError.value = true;
-  }
-};
-
-
-
-onMounted(() => {
-  // Vzhledem k CSP omezením automaticky zobrazíme jen výzvu k otevření v novém okně
-  iframeError.value = true;
+const swaggerLoaded = ref({
+  backend: false,
+  python: false
 });
-// Swagger URLs - upravte podľa vašej konfigurácie
-const baseUrl = window.location.origin;
-const backendSwaggerUrl = import.meta.env.VITE_API_URL.replace('/api', '/api-docs');
-const pythonSwaggerUrl = import.meta.env.VITE_PYTHON_API_URL + '/api-docs';
 
-// Funkce pro kontrolu přístupu k iframe
-const checkIframeAccess = async (url) => {
+// Base URLs
+const baseUrl = window.location.origin;
+const backendDocsUrl = `${import.meta.env.VITE_API_URL}/api-docs-spec`;
+const pythonDocsUrl = `${import.meta.env.VITE_PYTHON_API_URL}/api-docs-spec`;
+
+// URLs for external opening in new tab
+const backendSwaggerUrl = `${import.meta.env.VITE_API_URL.replace('/api', '/api-docs')}`;
+const pythonSwaggerUrl = `${import.meta.env.VITE_PYTHON_API_URL}/api-docs`;
+
+// Dynamically load the Swagger UI script
+const loadSwaggerUI = () => {
+  return new Promise((resolve) => {
+    // Check if Swagger UI is already loaded
+    if (window.SwaggerUIBundle) {
+      resolve();
+      return;
+    }
+
+    // Load CSS first
+    const cssLink = document.createElement('link');
+    cssLink.rel = 'stylesheet';
+    cssLink.type = 'text/css';
+    cssLink.href = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css';
+    document.head.appendChild(cssLink);
+
+    // Then load the JS
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js';
+    script.onload = () => resolve();
+    document.head.appendChild(script);
+  });
+};
+
+// Initialize Swagger UI for a specific tab
+const initSwaggerUI = async (tab) => {
+  await loadSwaggerUI();
+
+  if (!window.SwaggerUIBundle) {
+    console.error("SwaggerUIBundle not loaded properly");
+    return;
+  }
+
   try {
-    const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
-    return true;
+    const elementId = `${tab}-swagger-ui`;
+    const element = document.getElementById(elementId);
+
+    if (!element) {
+      console.error(`Element ${elementId} not found`);
+      return;
+    }
+
+    // Clear the element first
+    element.innerHTML = '';
+
+    // The URL to fetch the Swagger spec from
+    const specUrl = tab === 'backend' ? backendDocsUrl : pythonDocsUrl;
+
+    // Initialize SwaggerUI
+    window.SwaggerUIBundle({
+      dom_id: `#${elementId}`,
+      url: specUrl,
+      deepLinking: true,
+      presets: [
+        window.SwaggerUIBundle.presets.apis,
+        window.SwaggerUIBundle.SwaggerUIStandalonePreset
+      ],
+      layout: "BaseLayout",
+      supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+      onComplete: () => {
+        console.log(`Swagger UI for ${tab} loaded successfully`);
+        swaggerLoaded.value[tab] = true;
+      },
+      onFailure: (error) => {
+        console.error(`Failed to load Swagger UI for ${tab}:`, error);
+        swaggerLoaded.value[tab] = false;
+      }
+    });
   } catch (error) {
-    console.error('Nepodařilo se přistoupit k iframe URL:', error);
-    return false;
+    console.error(`Error initializing Swagger UI for ${tab}:`, error);
+    swaggerLoaded.value[tab] = false;
   }
 };
+
+// Watch for tab changes
+watch(activeTab, (newTab) => {
+  if (!swaggerLoaded.value[newTab]) {
+    initSwaggerUI(newTab);
+  }
+});
+
+// Initialize on mount
+onMounted(() => {
+  // Initialize Swagger UI for the initial tab
+  initSwaggerUI(activeTab.value);
+
+  // Add event listener for tab visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && activeTab.value && !swaggerLoaded.value[activeTab.value]) {
+      initSwaggerUI(activeTab.value);
+    }
+  });
+});
 </script>
 
-<style scoped>
-.swagger-iframe {
-  width: 100%;
+<style>
+.swagger-container {
   height: 800px;
   overflow: auto;
   border: 0;
+}
+
+/* Override some Swagger UI styles for better integration */
+.swagger-ui .topbar {
+  display: none;
+}
+
+.swagger-ui .information-container {
+  padding: 20px;
+  margin: 0;
+}
+
+.swagger-ui .scheme-container {
+  padding: 10px 0;
+  background-color: transparent;
+  box-shadow: none;
 }
 </style>

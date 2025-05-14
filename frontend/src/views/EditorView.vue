@@ -55,7 +55,7 @@ const pdfTools = ref([
   },
   {
     id: 3,
-    icon: 'mdi-file-split',
+    icon: 'mdi-scissors-cutting',
     title: 'pdf.splitPdf',
     description: 'pdf.splitPdfDesc',
     route: '/editor/split'
@@ -69,12 +69,48 @@ const pdfTools = ref([
   },
   {
     id: 5,
+    icon: 'mdi-image-multiple',
+    title: 'pdf.imageToPdf',
+    description: 'pdf.imageToPdfDesc',
+    route: '/editor/image-to-pdf'
+  },
+  {
+    id: 6,
+    icon: 'mdi-file-image',
+    title: 'pdf.pdfToImage',
+    description: 'pdf.pdfToImageDesc',
+    route: '/editor/pdf-to-image'
+  },
+  {
+    id: 7,
     icon: 'mdi-file-remove',
     title: 'pdf.deletePages',
     description: 'pdf.deletePagesDesc',
     route: '/editor/delete-pages'
+  },
+  {
+    id: 8,
+    icon: 'mdi-file-document-edit',
+    title: 'pdf.editMetadata',
+    description: 'pdf.editMetadataDesc',
+    route: '/editor/metadata'
+  },
+  {
+    id: 9,
+    icon: 'mdi-lock',
+    title: 'pdf.protectPdf',
+    description: 'pdf.protectPdfDesc',
+    route: '/editor/protect'
+  },
+  {
+    id: 10,
+    icon: 'mdi-file-compare',
+    title: 'pdf.compressPdf',
+    description: 'pdf.compressPdfDesc',
+    route: '/editor/compress'
   }
 ]);
+
 </script>
 
 <style scoped>

@@ -1,599 +1,50 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "PDF Editor API",
-    "description": "API pre PDF Editor aplikáciu - úprava PDF súborov a správa používateľov",
+    "title": "PDF Editor Backend API",
+    "description": "API for authentication, user management, and history tracking",
     "version": "1.0.0",
     "contact": {
-      "email": "admin@example.com"
-    },
-    "license": {
-      "name": "MIT",
-      "url": "https://opensource.org/licenses/MIT"
+      "email": "admin@pdfeditor.com"
     }
   },
   "servers": [
     {
-      "url": "http://localhost:3000/api",
-      "description": "Development server"
-    },
-    {
-      "url": "https://example.com/api",
-      "description": "Production server"
+      "url": "/api",
+      "description": "PDF Editor Backend Service"
     }
   ],
   "tags": [
     {
       "name": "auth",
-      "description": "Autentifikácia a manažment používateľov"
-    },
-    {
-      "name": "history",
-      "description": "História používania aplikácie"
+      "description": "Authentication operations"
     },
     {
       "name": "users",
-      "description": "Správa používateľov (admin)"
+      "description": "User management operations"
     },
     {
-      "name": "pdf",
-      "description": "Manipulácia s PDF súbormi"
+      "name": "history",
+      "description": "History tracking operations"
+    },
+    {
+      "name": "pdf-logs",
+      "description": "PDF operation logs"
+    },
+    {
+      "name": "system",
+      "description": "System information"
     }
   ],
   "paths": {
-    "/auth/register": {
-      "post": {
-        "tags": ["auth"],
-        "summary": "Registrácia nového používateľa",
-        "description": "Vytvorí nového používateľa v systéme",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Úspešná registrácia",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegisterResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Chybný požiadavok - email sa už používa",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/login": {
-      "post": {
-        "tags": ["auth"],
-        "summary": "Prihlásenie používateľa",
-        "description": "Prihlási používateľa a vráti JWT token",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Úspešné prihlásenie",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Neplatné credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/me": {
-      "get": {
-        "tags": ["auth"],
-        "summary": "Získanie údajov o prihlásenom používateľovi",
-        "description": "Vráti informácie o aktuálne prihlásenom používateľovi",
-        "security": [{
-          "bearerAuth": []
-        }],
-        "responses": {
-          "200": {
-            "description": "Úspešne získané údaje",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Nedostatočné oprávnenia",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/generate-api-key": {
-      "post": {
-        "tags": ["auth"],
-        "summary": "Vygenerovanie nového API kľúča",
-        "description": "Vygeneruje nový API kľúč pre používateľa",
-        "security": [{
-          "bearerAuth": []
-        }],
-        "responses": {
-          "200": {
-            "description": "Úspešne vygenerovaný API kľúč",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "apiKey": {
-                      "type": "string",
-                      "example": "12345678901234567890123456789012"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Nedostatočné oprávnenia",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/users": {
-      "get": {
-        "tags": ["users"],
-        "summary": "Získanie zoznamu používateľov (admin)",
-        "description": "Vráti zoznam všetkých používateľov (len pre admina)",
-        "security": [{
-          "bearerAuth": []
-        }],
-        "responses": {
-          "200": {
-            "description": "Úspešne získaný zoznam používateľov",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserResponse"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Nedostatočné oprávnenia",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Prístup zamietnutý (nie admin)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/users/{id}/role": {
-      "patch": {
-        "tags": ["users"],
-        "summary": "Zmena role používateľa (admin)",
-        "description": "Zmení rolu používateľa (len pre admina)",
-        "security": [{
-          "bearerAuth": []
-        }],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "ID používateľa"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "role": {
-                    "type": "string",
-                    "enum": ["user", "admin"],
-                    "example": "admin"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Úspešne zmenená rola",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "User role updated successfully"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Nedostatočné oprávnenia",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Prístup zamietnutý (nie admin)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Používateľ nenájdený",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/history": {
-      "get": {
-        "tags": ["history"],
-        "summary": "Získanie histórie používania (admin)",
-        "description": "Vráti históriu používania aplikácie (len pre admina)",
-        "security": [{
-          "bearerAuth": []
-        }],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 1
-            },
-            "description": "Číslo stránky"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 50
-            },
-            "description": "Počet položiek na stránku"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Úspešne získaná história",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/HistoryItem"
-                      }
-                    },
-                    "pagination": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "integer",
-                          "example": 100
-                        },
-                        "page": {
-                          "type": "integer",
-                          "example": 1
-                        },
-                        "pages": {
-                          "type": "integer",
-                          "example": 2
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Nedostatočné oprávnenia",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Prístup zamietnutý (nie admin)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": ["history"],
-        "summary": "Vymazanie histórie používania (admin)",
-        "description": "Vymaže celú históriu používania aplikácie (len pre admina)",
-        "security": [{
-          "bearerAuth": []
-        }],
-        "responses": {
-          "200": {
-            "description": "Úspešne vymazaná história",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "History cleared successfully"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Nedostatočné oprávnenia",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Prístup zamietnutý (nie admin)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/history/export": {
-      "get": {
-        "tags": ["history"],
-        "summary": "Export histórie používania (admin)",
-        "description": "Exportuje históriu používania ako CSV súbor (len pre admina)",
-        "security": [{
-          "bearerAuth": []
-        }],
-        "responses": {
-          "200": {
-            "description": "Úspešne exportovaná história",
-            "content": {
-              "text/csv": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Nedostatočné oprávnenia",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Prístup zamietnutý (nie admin)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/health": {
       "get": {
         "tags": ["system"],
-        "summary": "Kontrola dostupnosti API",
-        "description": "Vráti stav API servera",
+        "summary": "Health check endpoint",
+        "description": "Returns the status of the backend service",
         "responses": {
           "200": {
-            "description": "API je dostupné",
+            "description": "Service is running",
             "content": {
               "application/json": {
                 "schema": {
@@ -614,199 +65,1364 @@
           }
         }
       }
-    }
-  },
-  "components": {
-    "schemas": {
-      "RegisterRequest": {
-        "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "user@example.com"
-          },
-          "password": {
-            "type": "string",
-            "format": "password",
-            "example": "securePassword123"
-          }
-        }
-      },
-      "RegisterResponse": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string",
-            "example": "User registered successfully"
-          },
-          "user": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "integer",
-                "example": 123
-              },
-              "email": {
-                "type": "string",
-                "example": "user@example.com"
-              },
-              "role": {
-                "type": "string",
-                "example": "user"
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Register a new user",
+        "description": "Create a new user account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User's email address",
+                    "example": "user@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "description": "User's password",
+                    "example": "securepassword123"
+                  }
+                },
+                "required": ["email", "password"]
               }
             }
           }
-        }
-      },
-      "LoginRequest": {
-        "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "user@example.com"
-          },
-          "password": {
-            "type": "string",
-            "format": "password",
-            "example": "securePassword123"
-          }
-        }
-      },
-      "LoginResponse": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-          },
-          "user": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "integer",
-                "example": 123
-              },
-              "email": {
-                "type": "string",
-                "example": "user@example.com"
-              },
-              "role": {
-                "type": "string",
-                "example": "user"
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "User registered successfully"
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "example": 123
+                        },
+                        "email": {
+                          "type": "string",
+                          "example": "user@example.com"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": ["user", "admin"],
+                          "example": "user"
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
-          }
-        }
-      },
-      "UserResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "example": 123
           },
-          "email": {
-            "type": "string",
-            "example": "user@example.com"
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Email already registered"
+                    }
+                  }
+                }
+              }
+            }
           },
-          "role": {
-            "type": "string",
-            "example": "user"
-          },
-          "apiKey": {
-            "type": "string",
-            "example": "12345678901234567890123456789012"
-          },
-          "lastLogin": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2023-01-01T12:00:00Z"
-          }
-        }
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string",
-            "example": "Error message"
-          }
-        }
-      },
-      "HistoryItem": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "example": 123
-          },
-          "userId": {
-            "type": "integer",
-            "example": 456
-          },
-          "action": {
-            "type": "string",
-            "example": "login"
-          },
-          "description": {
-            "type": "string",
-            "example": "User logged in"
-          },
-          "ipAddress": {
-            "type": "string",
-            "example": "192.168.1.1"
-          },
-          "userAgent": {
-            "type": "string",
-            "example": "Mozilla/5.0..."
-          },
-          "city": {
-            "type": "string",
-            "example": "Bratislava"
-          },
-          "country": {
-            "type": "string",
-            "example": "Slovakia"
-          },
-          "accessType": {
-            "type": "string",
-            "enum": ["frontend", "api"],
-            "example": "frontend"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2023-01-01T12:00:00Z"
-          },
-          "User": {
-            "type": "object",
-            "properties": {
-              "email": {
-                "type": "string",
-                "example": "user@example.com"
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Registration failed"
+                    }
+                  }
+                }
               }
             }
           }
         }
       }
     },
+    "/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "User login",
+        "description": "Authenticate a user and get an access token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User's email address",
+                    "example": "user@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "description": "User's password",
+                    "example": "securepassword123"
+                  }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "description": "JWT access token",
+                      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "example": 123
+                        },
+                        "email": {
+                          "type": "string",
+                          "example": "user@example.com"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": ["user", "admin"],
+                          "example": "user"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid credentials"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Login failed"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Get current user",
+        "description": "Get details of the currently authenticated user",
+        "responses": {
+          "200": {
+            "description": "User details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "example": 123
+                    },
+                    "email": {
+                      "type": "string",
+                      "example": "user@example.com"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": ["user", "admin"],
+                      "example": "user"
+                    },
+                    "apiKey": {
+                      "type": "string",
+                      "example": "c5a9b107e7df4f5a9b88e24c9c7dfd6a1234567890abcdef"
+                    },
+                    "lastLogin": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2025-05-10T15:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to fetch user"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/generate-api-key": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Generate new API key",
+        "description": "Generate a new API key for the authenticated user",
+        "responses": {
+          "200": {
+            "description": "API key generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiKey": {
+                      "type": "string",
+                      "example": "c5a9b107e7df4f5a9b88e24c9c7dfd6a1234567890abcdef"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to generate API key"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/history/recent": {
+      "get": {
+        "tags": ["history"],
+        "summary": "Get user's recent activity",
+        "description": "Get the most recent activities for the authenticated user",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "description": "Maximum number of records to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent activities retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "example": 123
+                      },
+                      "userId": {
+                        "type": "integer",
+                        "example": 456
+                      },
+                      "action": {
+                        "type": "string",
+                        "example": "pdf-merge"
+                      },
+                      "description": {
+                        "type": "string",
+                        "example": "Merged 3 PDF files"
+                      },
+                      "ipAddress": {
+                        "type": "string",
+                        "example": "192.168.1.1"
+                      },
+                      "city": {
+                        "type": "string",
+                        "example": "Bratislava"
+                      },
+                      "country": {
+                        "type": "string",
+                        "example": "Slovakia"
+                      },
+                      "accessType": {
+                        "type": "string",
+                        "enum": ["frontend", "api"],
+                        "example": "frontend"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-05-10T15:30:00.000Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/history/by-type/{type}": {
+      "get": {
+        "tags": ["history"],
+        "summary": "Get activity by type",
+        "description": "Get user activities filtered by a specific type",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Activity type to filter by",
+            "example": "pdf-merge"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "description": "Maximum number of records to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activities retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "example": 123
+                      },
+                      "userId": {
+                        "type": "integer",
+                        "example": 456
+                      },
+                      "action": {
+                        "type": "string",
+                        "example": "pdf-merge"
+                      },
+                      "description": {
+                        "type": "string",
+                        "example": "Merged 3 PDF files"
+                      },
+                      "ipAddress": {
+                        "type": "string",
+                        "example": "192.168.1.1"
+                      },
+                      "city": {
+                        "type": "string",
+                        "example": "Bratislava"
+                      },
+                      "country": {
+                        "type": "string",
+                        "example": "Slovakia"
+                      },
+                      "accessType": {
+                        "type": "string",
+                        "enum": ["frontend", "api"],
+                        "example": "frontend"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-05-10T15:30:00.000Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/history/log": {
+      "post": {
+        "tags": ["history"],
+        "summary": "Log activity",
+        "description": "Record a new activity in the history log (for frontend operations)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "description": "The action performed",
+                    "example": "pdf-merge"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the action",
+                    "example": "Merged 3 PDF files"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Additional metadata about the operation"
+                  }
+                },
+                "required": ["action"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Activity logged successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Activity logged successfully"
+                    },
+                    "historyId": {
+                      "type": "integer",
+                      "example": 123
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Action is required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to log activity"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/history/clear": {
+      "delete": {
+        "tags": ["history"],
+        "summary": "Clear user history",
+        "description": "Delete all history records for the authenticated user",
+        "responses": {
+          "200": {
+            "description": "History cleared successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "History cleared successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to clear history"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/history/admin/all": {
+      "get": {
+        "tags": ["history"],
+        "summary": "Get all user activity (admin only)",
+        "description": "Get activity history for all users (requires admin privileges)",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number for pagination"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            },
+            "description": "Number of records per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activity history retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "example": 123
+                          },
+                          "userId": {
+                            "type": "integer",
+                            "example": 456
+                          },
+                          "action": {
+                            "type": "string",
+                            "example": "pdf-merge"
+                          },
+                          "description": {
+                            "type": "string",
+                            "example": "Merged 3 PDF files"
+                          },
+                          "ipAddress": {
+                            "type": "string",
+                            "example": "192.168.1.1"
+                          },
+                          "city": {
+                            "type": "string",
+                            "example": "Bratislava"
+                          },
+                          "country": {
+                            "type": "string",
+                            "example": "Slovakia"
+                          },
+                          "accessType": {
+                            "type": "string",
+                            "enum": ["frontend", "api"],
+                            "example": "frontend"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "example": "2025-05-10T15:30:00.000Z"
+                          },
+                          "User": {
+                            "type": "object",
+                            "properties": {
+                              "email": {
+                                "type": "string",
+                                "example": "user@example.com"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "example": 100
+                        },
+                        "page": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "pages": {
+                          "type": "integer",
+                          "example": 5
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Access denied"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to fetch history"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/history/admin/export": {
+      "get": {
+        "tags": ["history"],
+        "summary": "Export history to CSV (admin only)",
+        "description": "Export all activity history to a CSV file (requires admin privileges)",
+        "responses": {
+          "200": {
+            "description": "History exported successfully",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Access denied"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to export history"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/history/admin/clear": {
+      "delete": {
+        "tags": ["history"],
+        "summary": "Clear all history (admin only)",
+        "description": "Delete all activity history records for all users (requires admin privileges)",
+        "responses": {
+          "200": {
+            "description": "History cleared successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "All history cleared successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Access denied"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to clear history"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/pdfLogs/log": {
+      "post": {
+        "tags": ["pdf-logs"],
+        "summary": "Log PDF operation",
+        "description": "Record a PDF operation in the logs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "description": "The action performed (without pdf- prefix)",
+                    "example": "merge"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the operation",
+                    "example": "Merged 3 PDF files"
+                  },
+                  "fileId": {
+                    "type": "string",
+                    "description": "ID of the PDF file",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "description": "Name of the PDF file",
+                    "example": "document.pdf"
+                  },
+                  "operationType": {
+                    "type": "string",
+                    "description": "Type of operation",
+                    "example": "merge"
+                  }
+                },
+                "required": ["action"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation logged successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Operation logged successfully"
+                    },
+                    "historyId": {
+                      "type": "integer",
+                      "example": 123
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Action is required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "API key required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to log operation"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/pdfLogs": {
+      "get": {
+        "tags": ["pdf-logs"],
+        "summary": "Get PDF operation history",
+        "description": "Get PDF operation history for the authenticated user",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number for pagination"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "description": "Number of records per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF operation history retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "example": 123
+                          },
+                          "userId": {
+                            "type": "integer",
+                            "example": 456
+                          },
+                          "action": {
+                            "type": "string",
+                            "example": "pdf-merge"
+                          },
+                          "description": {
+                            "type": "string",
+                            "example": "Merged 3 PDF files"
+                          },
+                          "ipAddress": {
+                            "type": "string",
+                            "example": "192.168.1.1"
+                          },
+                          "city": {
+                            "type": "string",
+                            "example": "Bratislava"
+                          },
+                          "country": {
+                            "type": "string",
+                            "example": "Slovakia"
+                          },
+                          "accessType": {
+                            "type": "string",
+                            "enum": ["frontend", "api"],
+                            "example": "api"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "example": "2025-05-10T15:30:00.000Z"
+                          }
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "example": 50
+                        },
+                        "page": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "pages": {
+                          "type": "integer",
+                          "example": 5
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to fetch history"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/pdfLogs/check": {
+      "get": {
+        "tags": ["pdf-logs"],
+        "summary": "Check PDF logs",
+        "description": "Check if PDF logs exist (for debugging)",
+        "responses": {
+          "200": {
+            "description": "PDF logs check completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "example": 150
+                    },
+                    "pdfOperations": {
+                      "type": "integer",
+                      "example": 75
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "History check completed successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Failed to check history records"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
     "securitySchemes": {
-      "bearerAuth": {
+      "BearerAuth": {
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT"
       },
-      "apiKeyAuth": {
+      "ApiKeyAuth": {
         "type": "apiKey",
         "in": "header",
         "name": "X-API-Key"

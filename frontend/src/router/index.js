@@ -9,6 +9,12 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
+        path: '/admin-dashboard',
+        name: 'admin-dashboard',
+        component: () => import('../views/AdminDashboardView.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
         path: '/login',
         name: 'login',
         component: () => import('../views/LoginView.vue'),
@@ -40,14 +46,12 @@ const routes = [
         component: () => import('../views/ApiDocsView.vue'),
         meta: { requiresAuth: true }
     },
-    // Pridaná chýbajúca "editor" routa
     {
         path: '/editor',
         name: 'editor',
         component: () => import('../views/EditorView.vue'),
         meta: { requiresAuth: true }
     },
-    // Editor routes
     {
         path: '/editor/merge',
         name: 'merge-pdf',
@@ -77,32 +81,74 @@ const routes = [
         name: 'delete-pages',
         component: () => import('../views/DeletePagesView.vue'),
         meta: { requiresAuth: true }
+    },
+    // New editor routes
+    {
+        path: '/editor/protect',
+        name: 'protect-pdf',
+        component: () => import('../views/ProtectPdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/compress',
+        name: 'compress-pdf',
+        component: () => import('../views/CompressPdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/metadata',
+        name: 'edit-metadata',
+        component: () => import('../views/EditMetadataView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/image-to-pdf',
+        name: 'image-to-pdf',
+        component: () => import('../views/ImageToPdfView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/editor/pdf-to-image',
+        name: 'pdf-to-image',
+        component: () => import('../views/PdfToImageView.vue'),
+        meta: { requiresAuth: true }
     }
+
+
+
 ]
 
 const router = createRouter({
-    history: createWebHistory(),
+    history: createWebHistory(import.meta.env.BASE_URL),
     routes
 })
 
 router.beforeEach((to, from, next) => {
-    const authStore = useAuthStore()
+    const authStore = useAuthStore();
 
     if (to.matched.some(record => record.meta.requiresAuth)) {
+        // For routes requiring auth
         if (!authStore.isAuthenticated) {
-            next('/login')
+            // If not authenticated, redirect to login
+            next('/login');
+        } else if (to.matched.some(record => record.meta.requiresAdmin) && !authStore.isAdmin) {
+            // If route requires admin privileges but user is not admin
+            next('/dashboard');
         } else {
-            next()
+            // Otherwise proceed
+            next();
         }
     } else if (to.matched.some(record => record.meta.guest)) {
+        // For guest-only routes (like login/register)
         if (authStore.isAuthenticated) {
-            next('/')
+            next('/dashboard');
         } else {
-            next()
+            next();
         }
     } else {
-        next()
+        // For public routes
+        next();
     }
-})
+});
 
 export default router

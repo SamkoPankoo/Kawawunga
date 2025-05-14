@@ -1,21 +1,32 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import authService from '../services/auth'
 import router from '../router'
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null)
-    const token = ref(localStorage.getItem('token'))
+    const token = ref(localStorage.getItem('token') || null)
 
     const isAuthenticated = computed(() => !!token.value)
     const isAdmin = computed(() => user.value?.role === 'admin')
+
+    // Watch for changes to token and save to localStorage
+    watch(token, (newToken) => {
+        if (newToken) {
+            localStorage.setItem('token', newToken)
+            console.log('Token saved to localStorage')
+        } else {
+            localStorage.removeItem('token')
+            console.log('Token removed from localStorage')
+        }
+    })
 
     async function login(credentials) {
         try {
             const response = await authService.login(credentials)
             token.value = response.data.token
             user.value = response.data.user
-            localStorage.setItem('token', token.value)
+            console.log('Login successful, token set:', !!token.value)
             return true
         } catch (error) {
             console.error('Login failed:', error)
@@ -34,30 +45,40 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function logout() {
-        user.value = null
-        token.value = null
-        localStorage.removeItem('token')
+        user.value = null;
+        token.value = null;
+        localStorage.removeItem('token');
+        console.log('Logout complete, auth state cleared');
 
-        // Vynútené presmerovanie na login stránku pri odhlásení
-        if (router.currentRoute.value.meta.requiresAuth) {
-            // Použitie reload pre vynútenie obnovenia stránky a stavu aplikácie
-            window.location.href = '/login'
-        }
+        // Force redirect to login page on logout
+        router.push('/login');
     }
 
     async function fetchUser() {
-        if (!token.value) return null
+        if (!token.value) {
+            console.warn('Cannot fetch user: No token')
+            return null
+        }
 
         try {
             const response = await authService.getCurrentUser()
             user.value = response.data
+            console.log('User fetched successfully:', user.value?.email)
             return response.data
         } catch (error) {
             console.error('Failed to fetch user:', error)
-            // Ak zlyhal fetch user, použijeme logout na vyčistenie stavu
-            logout()
+            // If fetch user fails, clear state
+            token.value = null
+            user.value = null
+            localStorage.removeItem('token')
             return null
         }
+    }
+
+    // Initialize - fetch user if token exists
+    if (token.value) {
+        console.log('Token found, fetching user...')
+        fetchUser()
     }
 
     return {

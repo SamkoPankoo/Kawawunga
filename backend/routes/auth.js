@@ -43,15 +43,21 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+        console.log(`Login attempt for: ${email}`);
 
         // Find user
         const user = await User.findOne({ where: { email } });
         if (!user) {
+            console.log(`User not found: ${email}`);
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+        console.log(`User found: ${user.email}, role: ${user.role}`);
+
         // Validate password
         const isValid = await user.validatePassword(password);
+        console.log(`Password validation result: ${isValid}`);
+
         if (!isValid) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
@@ -59,7 +65,7 @@ router.post('/login', async (req, res) => {
         // Generate token
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role },
-            process.env.JWT_SECRET || 'your-secret-key',
+            process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
@@ -68,17 +74,22 @@ router.post('/login', async (req, res) => {
         await user.save();
 
         // Log history
-        const location = await getLocationInfo(req.ip);
-        await History.create({
-            userId: user.id,
-            action: 'login',
-            description: 'User logged in',
-            ipAddress: req.ip,
-            userAgent: req.headers['user-agent'],
-            city: location.city,
-            country: location.country,
-            accessType: 'frontend'
-        });
+        try {
+            const location = await getLocationInfo(req.ip);
+            await History.create({
+                userId: user.id,
+                action: 'login',
+                description: 'User logged in',
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent'],
+                city: location.city,
+                country: location.country,
+                accessType: 'frontend'
+            });
+        } catch (historyError) {
+            // Don't fail login if history fails
+            console.error('History error:', historyError);
+        }
 
         res.json({
             token,
@@ -89,7 +100,7 @@ router.post('/login', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error(error);
+        console.error('Login error:', error);
         res.status(500).json({ message: 'Login failed' });
     }
 });

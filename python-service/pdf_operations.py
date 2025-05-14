@@ -18,8 +18,10 @@ class PdfOperations:
     - Adding watermarks to PDFs
     - Converting images to PDF
     - Converting PDF to images
+
     - Compressing PDFs
     - Editing PDF metadata
+
     """
 
     def __init__(self, upload_folder):
@@ -338,8 +340,10 @@ class PdfOperations:
                         filename = f"pages_{start+1}-{end}.pdf"
                         output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
 
+
                         with open(output_path, 'wb') as output_file:
                             writer.write(output_file)
+
 
                         pdf_info = {
                             "id": split_id,
@@ -423,12 +427,14 @@ class PdfOperations:
                         output_doc = fitz.open()
                         output_doc.insert_pdf(doc, from_page=start, to_page=end)
 
+
                         split_id = str(uuid.uuid4())
                         filename = f"pages_{start+1}-{end+1}.pdf"
                         output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
 
                         output_doc.save(output_path)
                         output_doc.close()
+
 
                         pdf_info = {
                             "id": split_id,
@@ -495,7 +501,9 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error splitting PDF: {str(e)}")
 
+
     def rotate_pdf(self, file_id, angle=90, pages=None, preview_only=False):
+
         """Rotate pages in a PDF file"""
         if file_id not in self.pdf_storage:
             raise Exception("File not found")
@@ -542,6 +550,7 @@ class PdfOperations:
                     # Apply the rotation
                     page.set_rotation(new_rotation)
 
+
                 # For preview, use a temporary filename with "preview_" prefix
                 if preview_only:
                     new_file_id = str(uuid.uuid4())
@@ -551,6 +560,7 @@ class PdfOperations:
                     new_file_id = str(uuid.uuid4())
                     new_filename = f"rotated_{file_info['filename']}"
                     output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
 
                 doc.save(output_path)
                 doc.close()
@@ -589,6 +599,7 @@ class PdfOperations:
 
                     writer.add_page(page)
 
+
                 # For preview, use a temporary filename with "preview_" prefix
                 if preview_only:
                     new_file_id = str(uuid.uuid4())
@@ -599,6 +610,7 @@ class PdfOperations:
                     new_filename = f"rotated_{file_info['filename']}"
                     output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
 
+
                 with open(output_path, 'wb') as output_file:
                     writer.write(output_file)
 
@@ -607,18 +619,22 @@ class PdfOperations:
                 "id": new_file_id,
                 "filename": new_filename,
                 "pages": total_pages,
+
                 "filepath": output_path,
                 "preview": preview_only
             }
 
             # Store in pdf_storage (even previews, they'll be cleaned up later)
+
             self.pdf_storage[new_file_id] = pdf_info
             return pdf_info
 
         except Exception as e:
             raise Exception(f"Error rotating PDF: {str(e)}")
 
+
     def add_watermark(self, file_id, text, opacity=0.3, color="gray", size=36, angle=45, pages=None, preview_only=False):
+
         """Add text watermark to PDF pages"""
         if file_id not in self.pdf_storage:
             raise Exception("File not found")
@@ -674,6 +690,7 @@ class PdfOperations:
                     text_writer.append((center_x, center_y), text, fontsize=fontsize, rotate=angle)
                     text_writer.write_text(page)
 
+
                 # For preview, use a temporary filename with "preview_" prefix
                 if preview_only:
                     new_file_id = str(uuid.uuid4())
@@ -718,6 +735,7 @@ class PdfOperations:
                 if pages is None or not pages:
                     pages = list(range(1, total_pages + 1))
 
+
                 # Validate pages
                 pages = [p for p in pages if 1 <= p <= total_pages]
 
@@ -761,6 +779,7 @@ class PdfOperations:
                     new_filename = f"watermarked_{file_info['filename']}"
                     output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
 
+
                 with open(output_path, 'wb') as output_file:
                     writer.write(output_file)
 
@@ -769,16 +788,19 @@ class PdfOperations:
                 "id": new_file_id,
                 "filename": new_filename,
                 "pages": total_pages,
+
                 "filepath": output_path,
                 "preview": preview_only
             }
 
             # Store in pdf_storage (even previews, they'll be cleaned up later)
+
             self.pdf_storage[new_file_id] = pdf_info
             return pdf_info
 
         except Exception as e:
             raise Exception(f"Error adding watermark to PDF: {str(e)}")
+
 
     def compress_pdf(self, file_id, compression_level='medium'):
         """
@@ -1280,6 +1302,7 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error adding password protection: {str(e)}")
 
+
     def convert_images_to_pdf(self, image_files, page_size='A4', orientation='portrait'):
         """
         Convert images to a single PDF file
@@ -1542,8 +1565,10 @@ class PdfOperations:
         now = time.time()
         max_age_seconds = max_age_hours * 3600
 
+
         # Preview files should be cleaned up more aggressively
         preview_max_age_seconds = 3600  # 1 hour
+
 
         for root, dirs, files in os.walk(self.upload_folder):
             for filename in files:
@@ -1551,11 +1576,13 @@ class PdfOperations:
                 if os.path.isfile(filepath):
                     file_age = now - os.path.getmtime(filepath)
 
+
                     # Clean up preview files more aggressively
                     is_preview = "preview_" in filename
                     max_age = preview_max_age_seconds if is_preview else max_age_seconds
 
                     if file_age > max_age:
+
                         try:
                             os.remove(filepath)
                             print(f"Removed old file: {filepath}")

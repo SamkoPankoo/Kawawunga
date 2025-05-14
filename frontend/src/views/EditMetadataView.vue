@@ -28,6 +28,7 @@
                 closable
             >
               {{ error }}
+
             </v-alert>
           </v-card-text>
         </v-card>
@@ -115,6 +116,7 @@
                 icon="mdi-information"
             >
               {{ $t('pdf.metadataNote') }}
+
             </v-alert>
           </v-card-text>
           <v-card-actions class="px-4 pb-4">
@@ -133,6 +135,7 @@
         </v-card>
       </v-col>
     </v-row>
+
 
     <v-dialog v-model="showResultDialog" max-width="500">
       <v-card>
@@ -167,6 +170,7 @@
 </template>
 
 <script setup>
+
 import { ref, computed, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
@@ -177,6 +181,7 @@ import {useAuthStore} from '@/stores/auth';
 import LogOperation from '@/components/pdf/LogOperation.vue';
 const operationSuccess = ref(false);
 const resultFileId = ref(null);
+
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -190,6 +195,7 @@ const loading = ref(false);
 const error = ref(null);
 const fileId = ref(null);
 
+
 // For live preview
 const previewPdfUrl = ref(null);
 const isPreviewMetadataEdited = ref(false);
@@ -200,6 +206,7 @@ const previewTimeout = ref(null);
 const currentPreviewUrl = computed(() => {
   return previewPdfUrl.value || pdfUrl.value;
 });
+
 
 // Metadata options
 const metadata = ref({
@@ -228,6 +235,7 @@ const canUpdateMetadata = computed(() => {
 const handleFileChange = () => {
   if (selectedFile.value) {
     pdfUrl.value = URL.createObjectURL(selectedFile.value);
+
     // Reset preview when changing file
     previewPdfUrl.value = null;
     isPreviewMetadataEdited.value = false;
@@ -238,6 +246,7 @@ const handleFileChange = () => {
     pdfInfo.value = null;
     fileId.value = null;
     isPreviewMetadataEdited.value = false;
+
   }
 };
 
@@ -249,6 +258,7 @@ const handleError = (err) => {
   console.error('PDF error:', err);
   loading.value = false;
 };
+
 
 
 const getLogDescription = () => {
@@ -269,6 +279,7 @@ const getLogMetadata = () => {
     timestamp: new Date().toISOString()
   };
 };
+
 const prevPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
@@ -294,7 +305,9 @@ const uploadFile = async () => {
     formData.append('pdf', selectedFile.value);
 
     const response = await axios.post(
+
         `/python-api/upload`,
+
         formData,
         {
           headers: {
@@ -309,7 +322,9 @@ const uploadFile = async () => {
     // Attempt to read existing metadata
     try {
       const metadataResponse = await axios.get(
+
           `/python-api/metadata/${fileId.value}`
+
       );
 
       if (metadataResponse.data && metadataResponse.data.metadata) {
@@ -320,10 +335,12 @@ const uploadFile = async () => {
           keywords: metadataResponse.data.metadata.keywords || ''
         };
 
+
         // Create initial preview with existing metadata
         if (canUpdateMetadata.value) {
           previewMetadataChanges();
         }
+
       }
     } catch (metadataError) {
       console.warn('Could not fetch existing metadata:', metadataError);
@@ -336,6 +353,7 @@ const uploadFile = async () => {
     loading.value = false;
   }
 };
+
 
 // Function to create live preview of metadata changes
 const previewMetadataChanges = () => {
@@ -416,6 +434,7 @@ const previewMetadataChanges = () => {
   }, 500); // 500ms debounce
 };
 
+
 const updateMetadata = async () => {
   if (!fileId.value) return;
 
@@ -443,12 +462,16 @@ const updateMetadata = async () => {
     }
 
     const response = await axios.post(
+
         `/python-api/edit-metadata`,
+
         requestData,
         { headers }
     );
 
     resultFileUrl.value = response.data.id;
+
+
     resultFileId.value = response.data.id;
     operationSuccess.value = true;
     resultFilename.value = response.data.filename || 'metadata_updated.pdf';
@@ -472,6 +495,7 @@ const updateMetadata = async () => {
     // Update fileId to point to the new PDF with updated metadata
     fileId.value = response.data.id;
     pdfInfo.value = response.data;
+
   } catch (error) {
     console.error('Error updating metadata:', error);
     error.value = error.response?.data?.error || t('pdf.metadataError');
@@ -485,7 +509,9 @@ const downloadResult = async () => {
 
   try {
     const response = await axios.get(
+
         `/python-api/download/${resultFileUrl.value}`,
+
         { responseType: 'blob' }
     );
 
@@ -497,13 +523,16 @@ const downloadResult = async () => {
     link.click();
     link.remove();
 
+
     // Clean up the URL
     URL.revokeObjectURL(url);
+
   } catch (error) {
     console.error('Error downloading file:', error);
     error.value = t('pdf.downloadError');
   }
 };
+
 
 // Clean up object URLs when component is destroyed
 onBeforeUnmount(() => {
@@ -514,4 +543,5 @@ onBeforeUnmount(() => {
     URL.revokeObjectURL(previewPdfUrl.value);
   }
 });
+
 </script>

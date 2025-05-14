@@ -14,14 +14,15 @@
     </v-card-title>
     <v-card-text>
       <div ref="pdfContainer" class="pdf-container">
-        <pdf
+        <VuePdfEmbed
             v-if="pdfUrl"
-            :src="pdfUrl"
+            :source="pdfUrl"
             :page="currentPage"
             @num-pages="numPages = $event"
             @page-loaded="pageLoaded"
             @error="handleError"
-        ></pdf>
+            style="display: block; width: 100%;"
+        ></VuePdfEmbed>
         <v-progress-circular
             v-if="loading"
             indeterminate
@@ -35,7 +36,7 @@
 
 <script setup>
 import { ref, watch } from 'vue';
-import pdf from 'vue-pdf';
+import VuePdfEmbed from 'vue-pdf-embed';
 
 const props = defineProps({
   pdfUrl: {

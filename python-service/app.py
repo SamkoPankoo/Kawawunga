@@ -7,6 +7,7 @@ import zipfile
 import io
 import tempfile
 
+
 import fnmatch
 import time
 from werkzeug.utils import secure_filename
@@ -16,6 +17,7 @@ from flask_cors import CORS
 # Initialize Flask application
 app = Flask(__name__)
 ADMIN_API_KEY = None
+
 
 # Configure CORS before using any app configuration
 CORS(app, resources={r"/*": {"origins": "*",
@@ -48,6 +50,7 @@ except ImportError:
     def logger_log_operation(api_key, action, description=None, file_id=None, file_name=None, operation_type=None):
         print(f"[LOG] Operation: {action}, File: {file_name}, ID: {file_id}")
         return True
+
 
 def get_admin_api_key():
     global ADMIN_API_KEY
@@ -91,12 +94,15 @@ def get_api_key_from_request():
 
 # Logging function
 def log_operation(api_key, action, file_id=None, filename=None, description=None):
+
     try:
         # Try using the imported logger if available
         return logger_log_operation(
             api_key=api_key,
             action=action,
+
             description=description or f"{action} operation on {filename or 'unknown file'}",
+
             file_id=file_id,
             file_name=filename,
             operation_type=action
@@ -104,8 +110,10 @@ def log_operation(api_key, action, file_id=None, filename=None, description=None
     except Exception as e:
         # Fallback to simple console logging
         print(f"[LOG] Operation: {action}, File: {filename}, ID: {file_id}, API Key: {api_key[:5] if api_key else 'None'}...")
+
         print(f"[LOG] Error during logging: {str(e)}")
         return False
+
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -119,6 +127,7 @@ def upload_file():
     file = request.files['pdf']
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
+
 
     if not file.filename.lower().endswith('.pdf'):
         return jsonify({'error': 'File must be a PDF'}), 400
@@ -334,6 +343,7 @@ def download_zip(zip_id):
 
         return error_response
 
+
 @app.route('/merge', methods=['POST'])
 def merge_files():
     # Check if we have at least one file
@@ -357,6 +367,7 @@ def merge_files():
         output_filename = f"merged_{len(files)}_files.pdf"
 
     try:
+
         pdf_info = pdf_ops.merge_pdfs(files, output_filename)
         file_storage[pdf_info['id']] = pdf_info
 
@@ -382,6 +393,7 @@ def merge_files():
 
         response_info = pdf_info.copy()
         response_info.pop('filepath', None)
+
         return jsonify(response_info)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -434,6 +446,7 @@ def split_pdf():
                     'filepath': file_info['zip_path']
                 }
 
+
         # Get API key for logging
         api_key = get_api_key_from_request()
 
@@ -464,6 +477,7 @@ def split_pdf():
                 description=description
             )
 
+
         # Return metadata (excluding internal filepaths)
         response_files = []
         for file_info in result_files:
@@ -474,6 +488,7 @@ def split_pdf():
             response_files.append(response_info)
 
         return jsonify({"files": response_files})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -549,6 +564,7 @@ def rotate_pdf():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/watermark', methods=['POST'])
 def add_watermark():
     data = request.json
@@ -580,6 +596,7 @@ def add_watermark():
             angle = int(angle)
         except ValueError:
             angle = 45
+
 
     # Handle page selection
     page_selection = data.get('pageSelection', 'all')
@@ -635,9 +652,11 @@ def add_watermark():
         return jsonify({'error': str(e)}), 500
 
 
+
 @app.route('/pdf-to-image-zip', methods=['POST'])
 def pdf_to_image_zip():
     try:
+
         data = request.json
         if not data or 'file_id' not in data:
             return jsonify({'error': 'Missing required parameters'}), 400
@@ -702,6 +721,7 @@ def pdf_to_image():
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type, X-API-Key')
         return response
+
 
     try:
         data = request.json
@@ -773,6 +793,7 @@ def pdf_to_image():
             description
         )
 
+
         # Return metadata (excluding internal filepaths)
         response_files = []
         for file_info in result_files:
@@ -796,6 +817,7 @@ def pdf_to_image():
 def image_to_pdf():
     if len(request.files) < 1:
         return jsonify({'error': 'No image files provided'}), 400
+
 
     # Get all image files from the request
     image_files = []
@@ -921,8 +943,10 @@ def compress_pdf_route():
         # Use the PdfOperations class to compress PDF
         pdf_info = pdf_ops.compress_pdf(file_id, compression_level)
 
+
         # Also store in the old system for compatibility
         file_storage[pdf_info['id']] = pdf_info
+
 
         # Get API key for logging
         api_key = get_api_key_from_request()
@@ -946,12 +970,14 @@ def compress_pdf_route():
                 description
             )
 
+
         # Return metadata (excluding internal filepath)
         response_info = pdf_info.copy()
         response_info.pop('filepath', None)
 
         return jsonify(response_info)
     except Exception as e:
+
         print(f"Error compressing PDF: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
@@ -1158,6 +1184,7 @@ def test_logging_flow():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 # Cleanup task for temporary files (run in production)
 def cleanup_old_files():

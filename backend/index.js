@@ -5,17 +5,24 @@ const morgan = require('morgan');
 const dotenv = require('dotenv');
 const sequelize = require('./config/database');
 const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
+const userRoutes = require('./models/User');
 const historyRoutes = require('./routes/history');
+const pdfLogsRoutes = require('./routes/pdfLogs');
 const apiKeyMiddleware = require('./middleware/apiKey');
 const { initializeAdmin } = require('./init-data');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
+
 try {
     console.log('Loading swagger document:', swaggerDocument);
 } catch (error) {
     console.error('Error loading swagger document:', error);
 }
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
+}));
 
 dotenv.config();
 
@@ -31,14 +38,34 @@ app.use(morgan('dev'));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', apiKeyMiddleware, userRoutes);
 app.use('/api/history', apiKeyMiddleware, historyRoutes);
+app.use('/api/pdfLogs', pdfLogsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'PDF Editor API is running' });
 });
 
-// Swagger API dokumentácia
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.get('/api/api-docs-spec', (req, res) => {
+    try {
+        res.json(require('./swagger.json'));
+    } catch (error) {
+        console.error('Error loading swagger document:', error);
+        res.status(500).json({ error: 'Failed to load API documentation' });
+    }
+});
+// Swagger API documentation
+app.get('/api-docs-spec', (req, res) => {
+    res.json(swaggerDocument);
+});
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    swaggerOptions: {
+        docExpansion: 'list',
+        filter: true,
+        showRequestDuration: true,
+    }
+}));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -49,11 +76,14 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 // Database sync and server start
-sequelize.sync({ alter: true })
-    .then(async () => {
-        console.log('Database connected successfully');
+const { connectWithRetry, syncDatabase } = require('./config/db-connection');
 
-        // Inicializuj admin používateľa, ak neexistuje
+connectWithRetry()
+    .then(() => syncDatabase({ alter: true }))
+    .then(async () => {
+        console.log('Database connected and synced successfully');
+
+        // Initialize admin user if it doesn't exist
         await initializeAdmin();
 
         app.listen(PORT, '0.0.0.0', () => {

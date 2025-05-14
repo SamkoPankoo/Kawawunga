@@ -2,45 +2,37 @@
   "openapi": "3.0.0",
   "info": {
     "title": "PDF Editor Python API",
-    "description": "API pre manipuláciu s PDF súbormi",
+    "description": "API for PDF manipulation operations",
     "version": "1.0.0",
     "contact": {
-      "email": "admin@example.com"
-    },
-    "license": {
-      "name": "MIT",
-      "url": "https://opensource.org/licenses/MIT"
+      "email": "admin@pdfeditor.com"
     }
   },
   "servers": [
     {
-      "url": "http://localhost:5000",
-      "description": "Development server"
-    },
-    {
-      "url": "https://example.com/pdf-api",
-      "description": "Production server"
+      "url": "/python-api",
+      "description": "PDF Editor Python Service"
     }
   ],
   "tags": [
     {
-      "name": "system",
-      "description": "Systémové operácie"
+      "name": "pdf-operations",
+      "description": "PDF Manipulation Operations"
     },
     {
-      "name": "pdf",
-      "description": "PDF operácie"
+      "name": "system",
+      "description": "System Information"
     }
   ],
   "paths": {
     "/health": {
       "get": {
         "tags": ["system"],
-        "summary": "Kontrola dostupnosti API",
-        "description": "Vráti stav Python API servera",
+        "summary": "Health check endpoint",
+        "description": "Returns the status of the Python PDF service",
         "responses": {
           "200": {
-            "description": "API je dostupné",
+            "description": "Service is running",
             "content": {
               "application/json": {
                 "schema": {
@@ -52,7 +44,7 @@
                     },
                     "message": {
                       "type": "string",
-                      "example": "Python PDF Service is running"
+                      "example": "PDF Service is running"
                     }
                   }
                 }
@@ -64,9 +56,9 @@
     },
     "/upload": {
       "post": {
-        "tags": ["pdf"],
-        "summary": "Nahranie PDF súboru",
-        "description": "Nahrá PDF súbor na server pre ďalšie spracovanie",
+        "tags": ["pdf-operations"],
+        "summary": "Upload a PDF file",
+        "description": "Upload a PDF file for further processing",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -76,184 +68,36 @@
                   "pdf": {
                     "type": "string",
                     "format": "binary",
-                    "description": "PDF súbor na nahranie"
+                    "description": "PDF file to upload"
                   }
-                }
+                },
+                "required": ["pdf"]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Úspešne nahraný súbor",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PdfInfo"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Chybný požiadavok - neplatný súbor",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/merge": {
-      "post": {
-        "tags": ["pdf"],
-        "summary": "Zlúčenie PDF súborov",
-        "description": "Zlúči viacero PDF súborov do jedného",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file1": {
-                    "type": "string",
-                    "format": "binary",
-                    "description": "Prvý PDF súbor"
-                  },
-                  "file2": {
-                    "type": "string",
-                    "format": "binary",
-                    "description": "Druhý PDF súbor"
-                  },
-                  "file3": {
-                    "type": "string",
-                    "format": "binary",
-                    "description": "Ďalšie PDF súbory (nepovinné)"
-                  },
-                  "output_filename": {
-                    "type": "string",
-                    "description": "Názov výstupného súboru (nepovinné)"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Úspešne zlúčené PDF súbory",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PdfInfo"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Chybný požiadavok - neplatné súbory",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/split": {
-      "post": {
-        "tags": ["pdf"],
-        "summary": "Rozdelenie PDF súboru",
-        "description": "Rozdelí PDF súbor podľa špecifikovaných kritérií",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["file_id", "split_method"],
-                "properties": {
-                  "file_id": {
-                    "type": "string",
-                    "description": "ID nahraného PDF súboru"
-                  },
-                  "split_method": {
-                    "type": "string",
-                    "enum": ["byPage", "byRanges", "extractPages"],
-                    "description": "Metóda rozdelenia súboru"
-                  },
-                  "ranges": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "start": {
-                          "type": "integer",
-                          "description": "Začiatočná stránka rozsahu"
-                        },
-                        "end": {
-                          "type": "integer",
-                          "description": "Koncová stránka rozsahu"
-                        }
-                      }
-                    },
-                    "description": "Rozsahy strán pre metódu byRanges"
-                  },
-                  "pages": {
-                    "type": "array",
-                    "items": {
-                      "type": "integer"
-                    },
-                    "description": "Zoznam strán pre metódu extractPages"
-                  },
-                  "create_zip": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Vytvorenie ZIP archívu pre viac výstupných súborov"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Úspešne rozdelený PDF súbor",
+            "description": "PDF uploaded successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "files": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/PdfInfo"
-                      }
+                    "id": {
+                      "type": "string",
+                      "description": "Unique ID for the uploaded file",
+                      "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "description": "Original file name",
+                      "example": "document.pdf"
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "description": "Number of pages in the PDF",
+                      "example": 5
                     }
                   }
                 }
@@ -261,301 +105,65 @@
             }
           },
           "400": {
-            "description": "Chybný požiadavok - neplatné parametre",
+            "description": "Invalid request",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Súbor nenájdený",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "No file provided"
+                    }
+                  }
                 }
               }
             }
           },
           "500": {
-            "description": "Serverová chyba",
+            "description": "Server error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/rotate": {
-      "post": {
-        "tags": ["pdf"],
-        "summary": "Otočenie strán v PDF",
-        "description": "Otočí strany v PDF súbore",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["file_id", "page", "rotation"],
-                "properties": {
-                  "file_id": {
-                    "type": "string",
-                    "description": "ID nahraného PDF súboru"
-                  },
-                  "page": {
-                    "type": "integer",
-                    "description": "Číslo strany na otočenie (1-indexované)"
-                  },
-                  "rotation": {
-                    "type": "integer",
-                    "enum": [90, 180, 270],
-                    "description": "Uhol otočenia v stupňoch"
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Error processing file"
+                    }
                   }
                 }
               }
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Úspešne otočené strany",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PdfInfo"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Chybný požiadavok - neplatné parametre",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Súbor nenájdený",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+        "security": [
+          {
+            "ApiKeyAuth": []
           }
-        }
-      }
-    },
-    "/remove-pages": {
-      "post": {
-        "tags": ["pdf"],
-        "summary": "Odstránenie strán z PDF",
-        "description": "Odstráni špecifikované strany z PDF súboru",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["file_id", "pages"],
-                "properties": {
-                  "file_id": {
-                    "type": "string",
-                    "description": "ID nahraného PDF súboru"
-                  },
-                  "pages": {
-                    "type": "array",
-                    "items": {
-                      "type": "integer"
-                    },
-                    "description": "Zoznam strán na odstránenie (1-indexované)"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Úspešne odstránené strany",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PdfInfo"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Chybný požiadavok - neplatné parametre",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Súbor nenájdený",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/watermark": {
-      "post": {
-        "tags": ["pdf"],
-        "summary": "Pridanie vodoznaku do PDF",
-        "description": "Pridá textový vodoznak do PDF súboru",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["file_id", "text"],
-                "properties": {
-                  "file_id": {
-                    "type": "string",
-                    "description": "ID nahraného PDF súboru"
-                  },
-                  "text": {
-                    "type": "string",
-                    "description": "Text vodoznaku"
-                  },
-                  "opacity": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1,
-                    "default": 0.3,
-                    "description": "Priehľadnosť vodoznaku (0-1)"
-                  },
-                  "size": {
-                    "type": "integer",
-                    "default": 36,
-                    "description": "Veľkosť písma"
-                  },
-                  "color": {
-                    "type": "string",
-                    "default": "gray",
-                    "description": "Farba vodoznaku (CSS farba)"
-                  },
-                  "angle": {
-                    "type": "integer",
-                    "default": 45,
-                    "description": "Uhol natočenia v stupňoch"
-                  },
-                  "pages": {
-                    "type": "array",
-                    "items": {
-                      "type": "integer"
-                    },
-                    "description": "Zoznam strán pre vodoznak (prázdne = všetky)"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Úspešne pridaný vodoznak",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PdfInfo"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Chybný požiadavok - neplatné parametre",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Súbor nenájdený",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/download/{file_id}": {
       "get": {
-        "tags": ["pdf"],
-        "summary": "Stiahnutie PDF súboru",
-        "description": "Stiahnutie spracovaného PDF súboru",
+        "tags": ["pdf-operations"],
+        "summary": "Download a processed PDF file",
+        "description": "Download a PDF file by its ID",
         "parameters": [
           {
             "name": "file_id",
             "in": "path",
             "required": true,
-            "description": "ID súboru na stiahnutie",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "ID of the file to download",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
           }
         ],
         "responses": {
           "200": {
-            "description": "PDF súbor",
+            "description": "Returns the PDF file",
             "content": {
               "application/pdf": {
                 "schema": {
@@ -566,111 +174,1233 @@
             }
           },
           "404": {
-            "description": "Súbor nenájdený",
+            "description": "File not found",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/merge": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Merge multiple PDF files",
+        "description": "Combine multiple PDF files into one",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file0": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "First PDF file"
+                  },
+                  "file1": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Second PDF file"
+                  },
+                  "output_filename": {
+                    "type": "string",
+                    "description": "Optional output filename"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PDFs merged successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "example": "merged.pdf"
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "example": 10
+                    }
+                  }
                 }
               }
             }
           },
-          "500": {
-            "description": "Serverová chyba",
+          "400": {
+            "description": "Invalid request",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Need at least two valid PDF files to merge"
+                    }
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
       }
     },
-    "/download-zip/{zip_id}": {
-      "get": {
-        "tags": ["pdf"],
-        "summary": "Stiahnutie ZIP archívu",
-        "description": "Stiahnutie ZIP archívu s viacerými PDF súbormi",
-        "parameters": [
-          {
-            "name": "zip_id",
-            "in": "path",
-            "required": true,
-            "description": "ID ZIP archívu na stiahnutie",
-            "schema": {
-              "type": "string"
+    "/split": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Split a PDF file",
+        "description": "Split a PDF file into multiple files based on specified method",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID of the PDF file to split",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "split_method": {
+                    "type": "string",
+                    "description": "Method for splitting the PDF",
+                    "enum": ["byPage", "byRanges", "extractPages"],
+                    "example": "byPage"
+                  },
+                  "ranges": {
+                    "type": "array",
+                    "description": "Page ranges when using byRanges method",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "integer",
+                          "description": "Start page (1-indexed)",
+                          "example": 1
+                        },
+                        "end": {
+                          "type": "integer",
+                          "description": "End page (inclusive)",
+                          "example": 3
+                        }
+                      }
+                    }
+                  },
+                  "pages": {
+                    "type": "array",
+                    "description": "Specific pages to extract when using extractPages method",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [1, 3, 5]
+                  },
+                  "create_zip": {
+                    "type": "boolean",
+                    "description": "Whether to create a ZIP file for multiple result files",
+                    "default": true
+                  }
+                },
+                "required": ["file_id", "split_method"]
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "ZIP archív",
+            "description": "PDF split successfully",
             "content": {
-              "application/zip": {
+              "application/json": {
                 "schema": {
-                  "type": "string",
-                  "format": "binary"
+                  "type": "object",
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "description": "List of output files",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "example": "b1c2d3e4-f5g6-7890-abcd-ef1234567890"
+                          },
+                          "filename": {
+                            "type": "string",
+                            "example": "page_1.pdf"
+                          },
+                          "pages": {
+                            "type": "integer",
+                            "example": 1
+                          },
+                          "zip_id": {
+                            "type": "string",
+                            "example": "z1x2c3v4-b5n6-7890-abcd-ef1234567890"
+                          },
+                          "zip_filename": {
+                            "type": "string",
+                            "example": "split_files.zip"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Missing required parameters"
+                    }
+                  }
                 }
               }
             }
           },
           "404": {
-            "description": "Súbor nenájdený",
+            "description": "File not found",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Serverová chyba",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/rotate": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Rotate PDF pages",
+        "description": "Rotate specific pages in a PDF file",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID of the PDF file to rotate",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "angle": {
+                    "type": "integer",
+                    "description": "Rotation angle in degrees",
+                    "enum": [90, 180, 270],
+                    "default": 90,
+                    "example": 90
+                  },
+                  "pages": {
+                    "type": "array",
+                    "description": "Pages to rotate (1-indexed). If not provided, all pages will be rotated.",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [1, 3]
+                  }
+                },
+                "required": ["file_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PDF rotated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "b1c2d3e4-f5g6-7890-abcd-ef1234567890"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "example": "rotated_document.pdf"
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "example": 5
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Missing required parameters"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/watermark": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Add watermark to PDF",
+        "description": "Add a text watermark to specific pages in a PDF file",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID of the PDF file to watermark",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "Watermark text",
+                    "example": "CONFIDENTIAL"
+                  },
+                  "opacity": {
+                    "type": "number",
+                    "description": "Watermark opacity (0-1)",
+                    "default": 0.3,
+                    "example": 0.5
+                  },
+                  "color": {
+                    "type": "string",
+                    "description": "Watermark color",
+                    "enum": ["gray", "red", "blue", "green", "black"],
+                    "default": "gray",
+                    "example": "red"
+                  },
+                  "size": {
+                    "type": "integer",
+                    "description": "Font size for watermark text",
+                    "default": 36,
+                    "example": 48
+                  },
+                  "angle": {
+                    "type": "integer",
+                    "description": "Watermark angle",
+                    "default": 45,
+                    "example": 45
+                  },
+                  "pages": {
+                    "type": "array",
+                    "description": "Pages to watermark (1-indexed). If not provided, all pages will be watermarked.",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [1, 2]
+                  }
+                },
+                "required": ["file_id", "text"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Watermark added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "b1c2d3e4-f5g6-7890-abcd-ef1234567890"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "example": "watermarked_document.pdf"
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "example": 5
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Missing required parameters"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/protect": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Password protect a PDF",
+        "description": "Apply password protection to a PDF file",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID of the PDF file to protect",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "user_password": {
+                    "type": "string",
+                    "description": "Password to open the document",
+                    "example": "userpassword"
+                  },
+                  "owner_password": {
+                    "type": "string",
+                    "description": "Optional password for full permissions (defaults to user_password)",
+                    "example": "ownerpassword"
+                  },
+                  "allow_printing": {
+                    "type": "boolean",
+                    "description": "Whether printing is allowed",
+                    "default": true
+                  },
+                  "allow_copying": {
+                    "type": "boolean",
+                    "description": "Whether copying content is allowed",
+                    "default": true
+                  }
+                },
+                "required": ["file_id", "user_password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PDF protected successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "b1c2d3e4-f5g6-7890-abcd-ef1234567890"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "example": "protected_document.pdf"
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "example": 5
+                    },
+                    "protected": {
+                      "type": "boolean",
+                      "example": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Missing required parameters"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/compress": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Compress a PDF file",
+        "description": "Reduce the size of a PDF file",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID of the PDF file to compress",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "compression_level": {
+                    "type": "string",
+                    "description": "Compression level",
+                    "enum": ["low", "medium", "high"],
+                    "default": "medium",
+                    "example": "medium"
+                  }
+                },
+                "required": ["file_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PDF compressed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "b1c2d3e4-f5g6-7890-abcd-ef1234567890"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "example": "compressed_document.pdf"
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "example": 5
+                    },
+                    "original_size": {
+                      "type": "integer",
+                      "example": 1048576
+                    },
+                    "compressed_size": {
+                      "type": "integer",
+                      "example": 524288
+                    },
+                    "compression_ratio": {
+                      "type": "number",
+                      "example": 0.5
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Missing required parameters"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/remove-pages": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Remove pages from a PDF",
+        "description": "Remove specific pages from a PDF document",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID of the PDF file to modify",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "pages": {
+                    "type": "array",
+                    "description": "Pages to remove (1-indexed)",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [2, 4]
+                  }
+                },
+                "required": ["file_id", "pages"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pages removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "b1c2d3e4-f5g6-7890-abcd-ef1234567890"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "example": "pages_removed_document.pdf"
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "example": 3
+                    },
+                    "removed_pages": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "example": [2, 4]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Missing required parameters"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/edit-metadata": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Edit PDF metadata",
+        "description": "Update metadata properties of a PDF document",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID of the PDF file to modify",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Metadata properties to update",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "description": "Document title",
+                        "example": "Annual Report 2025"
+                      },
+                      "author": {
+                        "type": "string",
+                        "description": "Document author",
+                        "example": "John Doe"
+                      },
+                      "subject": {
+                        "type": "string",
+                        "description": "Document subject",
+                        "example": "Financial Report"
+                      },
+                      "keywords": {
+                        "type": "string",
+                        "description": "Document keywords",
+                        "example": "finance, annual, report"
+                      }
+                    }
+                  }
+                },
+                "required": ["file_id", "metadata"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metadata updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "b1c2d3e4-f5g6-7890-abcd-ef1234567890"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "example": "metadata_document.pdf"
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "example": 5
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string",
+                          "example": "Annual Report 2025"
+                        },
+                        "author": {
+                          "type": "string",
+                          "example": "John Doe"
+                        },
+                        "subject": {
+                          "type": "string",
+                          "example": "Financial Report"
+                        },
+                        "keywords": {
+                          "type": "string",
+                          "example": "finance, annual, report"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Missing required parameters"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/metadata/{file_id}": {
+      "get": {
+        "tags": ["pdf-operations"],
+        "summary": "Get PDF metadata",
+        "description": "Retrieve metadata from a PDF document",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the PDF file",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string",
+                          "example": "Annual Report 2025"
+                        },
+                        "author": {
+                          "type": "string",
+                          "example": "John Doe"
+                        },
+                        "subject": {
+                          "type": "string",
+                          "example": "Financial Report"
+                        },
+                        "keywords": {
+                          "type": "string",
+                          "example": "finance, annual, report"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/image-to-pdf": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Convert images to PDF",
+        "description": "Create a PDF file from one or more images",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image0": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "First image file"
+                  },
+                  "image1": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Second image file (optional)"
+                  },
+                  "page_size": {
+                    "type": "string",
+                    "description": "Output page size",
+                    "enum": ["A4", "A5", "Letter", "Legal"],
+                    "default": "A4"
+                  },
+                  "orientation": {
+                    "type": "string",
+                    "description": "Page orientation",
+                    "enum": ["portrait", "landscape"],
+                    "default": "portrait"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Images converted to PDF successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "b1c2d3e4-f5g6-7890-abcd-ef1234567890"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "example": "converted_images.pdf"
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "example": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "No valid image files provided"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/pdf-to-image": {
+      "post": {
+        "tags": ["pdf-operations"],
+        "summary": "Convert PDF to images",
+        "description": "Convert PDF pages to image files",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "ID of the PDF file to convert",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "format": {
+                    "type": "string",
+                    "description": "Output image format",
+                    "enum": ["png", "jpg", "jpeg"],
+                    "default": "png"
+                  },
+                  "dpi": {
+                    "type": "integer",
+                    "description": "Image resolution in DPI",
+                    "default": 300,
+                    "example": 300
+                  },
+                  "pages": {
+                    "type": "array",
+                    "description": "Pages to convert (1-indexed). If not provided, all pages will be converted.",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [1, 2]
+                  },
+                  "create_zip": {
+                    "type": "boolean",
+                    "description": "Whether to create a ZIP file for multiple images",
+                    "default": true
+                  }
+                },
+                "required": ["file_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PDF converted to images successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "description": "List of generated image files",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "example": "b1c2d3e4-f5g6-7890-abcd-ef1234567890"
+                          },
+                          "filename": {
+                            "type": "string",
+                            "example": "page_1.png"
+                          },
+                          "type": {
+                            "type": "string",
+                            "example": "image/png"
+                          },
+                          "zip_id": {
+                            "type": "string",
+                            "example": "z1x2c3v4-b5n6-7890-abcd-ef1234567890"
+                          },
+                          "zip_url": {
+                            "type": "string",
+                            "example": "/download-zip/z1x2c3v4-b5n6-7890-abcd-ef1234567890"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Missing required parameters"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "File not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
       }
     }
   },
   "components": {
-    "schemas": {
-      "PdfInfo": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "550e8400-e29b-41d4-a716-446655440000"
-          },
-          "filename": {
-            "type": "string",
-            "example": "document.pdf"
-          },
-          "pages": {
-            "type": "integer",
-            "example": 10
-          },
-          "filepath": {
-            "type": "string",
-            "example": "/app/uploads/550e8400-e29b-41d4-a716-446655440000.pdf"
-          }
-        }
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
       },
-      "ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "string",
-            "example": "Error message"
-          }
-        }
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     }
   }

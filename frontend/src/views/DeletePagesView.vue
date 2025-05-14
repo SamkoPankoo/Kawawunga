@@ -227,11 +227,13 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
+
 import VuePdfEmbed from 'vue-pdf-embed';
 import { useAuthStore } from '@/stores/auth';
 import LogOperation from '@/components/pdf/LogOperation.vue';
 const operationSuccess = ref(false);
 const resultFileId = ref(null);
+
 const { t } = useI18n();
 const authStore = useAuthStore();
 
