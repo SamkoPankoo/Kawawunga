@@ -39,15 +39,19 @@
         <v-card>
           <v-card-title>{{ $t('pdf.preview') }}</v-card-title>
           <v-card-text>
-            <pdf
+
+            <VuePdfEmbed
                 v-if="pdfUrl"
-                :src="pdfUrl"
+                :source="pdfUrl"
+
                 :page="currentPage"
                 @num-pages="numPages = $event"
                 @page-loaded="pageLoaded"
                 @error="handleError"
                 style="display: block; width: 100%;"
-            ></pdf>
+
+            ></VuePdfEmbed>
+
             <v-progress-circular
                 v-if="loading"
                 indeterminate
@@ -221,6 +225,15 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <LogOperation
+        v-if="operationSuccess"
+        :operation="'compress'"
+        :description="getLogDescription()"
+        :metadata="getLogMetadata()"
+
+    />
+
   </v-container>
 </template>
 
@@ -228,8 +241,13 @@
 import { ref, computed, watch } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import pdf from 'vue-pdf-embed';
-import { useAuthStore } from '../stores/auth';
+
+import VuePdfEmbed from "vue-pdf-embed";
+import {useAuthStore} from '@/stores/auth';
+import LogOperation from '@/components/pdf/LogOperation.vue';
+const operationSuccess = ref(false);
+const resultFileId = ref(null);
+
 
 const apiBaseUrl = import.meta.env.VITE_PYTHON_API_URL;
 
@@ -324,6 +342,36 @@ watch(numPages, (newValue) => {
     pageRange.value.to = newValue;
   }
 });
+
+
+const getLogDescription = () => {
+  let pagesDesc = '';
+  if (pageSelection.value === 'all') {
+    pagesDesc = `all ${numPages.value} pages`;
+  } else if (pageSelection.value === 'current') {
+    pagesDesc = `page ${currentPage.value}`;
+  } else if (pageSelection.value === 'range') {
+    pagesDesc = `pages ${pageRange.value.from} to ${pageRange.value.to}`;
+  } else if (pageSelection.value === 'custom') {
+    pagesDesc = `selected pages (${customPages.value})`;
+  }
+
+  return `Converted ${pagesDesc} to ${outputFormat.value.toUpperCase()} images (${dpi.value} DPI)`;
+};
+
+const getLogMetadata = () => {
+  return {
+    fileName: selectedFile.value?.name,
+    format: outputFormat.value,
+    dpi: dpi.value,
+    pageSelection: pageSelection.value,
+    resultFiles: resultFiles.value.length,
+    zipFile: !!zipId.value,
+    timestamp: new Date().toISOString()
+  };
+};
+
+
 
 watch(currentPage, () => {
   if (pageSelection.value === 'current') {
@@ -454,6 +502,12 @@ const convertToImages = async () => {
 
     resultFiles.value = response.data.files || [];
 
+    if (resultFiles.value.length > 0) {
+      resultFileId.value = resultFiles.value[0].id;
+      operationSuccess.value = true;
+    }
+
+
     // Check if there's a ZIP file
     if (resultFiles.value.length > 0 && resultFiles.value[0].zip_id) {
       zipId.value = resultFiles.value[0].zip_id;
@@ -474,22 +528,91 @@ const downloadResult = async () => {
   try {
     // If we have a ZIP file, download it
     if (zipId.value) {
-      const response = await axios.get(
-          `${apiBaseUrl}/download-zip/${zipId.value}`,
-          { responseType: 'blob' }
-      );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'pdf_images.zip');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      console.log("Attempting to download ZIP file with ID:", zipId.value);
+
+      // Create URLs for each file in the result set
+      const fileUrls = resultFiles.value.map(file => ({
+        id: file.id,
+        name: file.filename,
+        url: `${apiBaseUrl}/download/${file.id}`
+      }));
+
+      console.log("Available files:", fileUrls);
+
+      try {
+        // Try to download ZIP first
+        const response = await axios.get(
+            `${apiBaseUrl}/download-zip/${zipId.value}`,
+            {
+              responseType: 'blob',
+              headers: {
+                'Accept': 'application/zip, application/json'
+              }
+            }
+        );
+
+        console.log("ZIP response received:", response.status);
+
+        // Create download link
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'pdf_images.zip');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+      } catch (err) {
+        console.error("ZIP download failed, details:", err);
+
+        // Check if we need to try an alternative URL
+        try {
+          console.log("Trying alternative ZIP format");
+
+          // Try adding .zip extension explicitly
+          const altResponse = await axios.get(
+              `${apiBaseUrl}/download/${zipId.value}.zip`,
+              {
+                responseType: 'blob'
+              }
+          );
+
+          const url = window.URL.createObjectURL(new Blob([altResponse.data]));
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', 'pdf_images.zip');
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          return;
+        } catch (altErr) {
+          console.error("Alternative ZIP download also failed");
+
+          // Fall back to downloading all files individually
+          if (confirm("ZIP download failed. Would you like to download the first image instead?")) {
+            downloadFirstImage();
+          }
+        }
+      }
+    } else {
+      downloadFirstImage();
     }
-    // Otherwise download the first image (or the only one)
-    else if (resultFiles.value.length > 0) {
-      const file = resultFiles.value[0];
+  } catch (error) {
+    console.error('Error in download function:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+    }
+    error.value = t('pdf.downloadError');
+  }
+};
+
+// Helper to download first image
+const downloadFirstImage = async () => {
+  if (resultFiles.value.length > 0) {
+    const file = resultFiles.value[0];
+    try {
+
       const response = await axios.get(
           `${apiBaseUrl}/download/${file.id}`,
           { responseType: 'blob' }
@@ -502,10 +625,12 @@ const downloadResult = async () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+
+    } catch (err) {
+      console.error("Error downloading single image:", err);
+      error.value = t('pdf.downloadError');
     }
-  } catch (error) {
-    console.error('Error downloading file:', error);
-    error.value = t('pdf.downloadError');
+
   }
 };
 

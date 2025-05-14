@@ -39,15 +39,15 @@
         <v-card>
           <v-card-title>{{ $t('pdf.viewer') }}</v-card-title>
           <v-card-text>
-            <pdf
+            <vue-pdf-embed
                 v-if="pdfUrl"
-                :src="pdfUrl"
+                :source="pdfUrl"
                 :page="currentPage"
-                @num-pages="numPages = $event"
-                @page-loaded="pageLoaded"
+                @loaded="numPages = $event.numPages"
+                @rendered="pageLoaded"
                 @error="handleError"
                 style="display: block; width: 100%;"
-            ></pdf>
+            ></vue-pdf-embed>
             <v-progress-circular
                 v-if="loading"
                 indeterminate
@@ -206,6 +206,14 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <LogOperation
+        v-if="operationSuccess"
+        :operation="'split'"
+        :description="getLogDescription()"
+        :metadata="getLogMetadata()"
+        @logged="handleLogged"
+        @error="handleLogError"
+    />
   </v-container>
 </template>
 
@@ -213,9 +221,15 @@
 import { ref, computed, watch } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import PdfEmbed from 'vue-pdf-embed';
+
+import VuePdfEmbed from 'vue-pdf-embed';
+import LogOperation from '@/components/pdf/LogOperation.vue';
+const operationSuccess = ref(false);
+const resultFileId = ref(null);
 
 const { t } = useI18n();
+import { useAuthStore } from '@/stores/auth';
+
 
 const selectedFile = ref(null);
 const pdfUrl = ref(null);
@@ -304,6 +318,42 @@ const handleFileChange = () => {
   }
 };
 
+
+const getLogDescription = () => {
+  let desc = '';
+  if (splitMethod.value === 'byPage') {
+    desc = `Split PDF into ${numPages.value} individual pages`;
+  } else if (splitMethod.value === 'byRanges') {
+    desc = `Split PDF into ${pageRanges.value.length} ranges`;
+  } else if (splitMethod.value === 'extractPages') {
+    const pageCount = extractPages.value.split(',').length;
+    desc = `Extracted ${pageCount} pages from PDF`;
+  }
+  return desc;
+};
+
+const getLogMetadata = () => {
+  return {
+    fileName: selectedFile.value?.name,
+    splitMethod: splitMethod.value,
+    resultFiles: resultFiles.value.map(f => f.filename),
+    fileCount: resultFiles.value.length,
+    timestamp: new Date().toISOString()
+  };
+};
+
+// Within splitPdf function (after getting results)
+if (resultFiles.value.length > 0 && resultFiles.value[0].id) {
+  resultFileId.value = resultFiles.value[0].id;
+  operationSuccess.value = true;
+}
+const handleLogged = () => {
+  console.log('Operation logged successfully');
+};
+
+const handleLogError = (error) => {
+  console.error('Failed to log operation:', error);
+};
 const pageLoaded = () => {
   loading.value = false;
 };
@@ -348,7 +398,7 @@ const uploadFile = async () => {
     formData.append('pdf', selectedFile.value);
 
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/upload`,
+        `/python-api/upload`,
         formData,
         {
           headers: {
@@ -374,6 +424,10 @@ const splitPdf = async () => {
   error.value = null;
 
   try {
+    // Import auth store if not already imported
+
+    const authStore = useAuthStore();
+
     let requestData = {
       file_id: fileId.value,
       split_method: splitMethod.value,
@@ -386,15 +440,31 @@ const splitPdf = async () => {
       requestData.pages = extractPages.value.split(',').map(p => parseInt(p.trim()));
     }
 
+    // Add API key to the request if available
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (authStore.user?.apiKey) {
+      headers['X-API-Key'] = authStore.user.apiKey;
+    }
+
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/split`,
-        requestData
+        `/python-api/split`,
+        requestData,
+        { headers }
     );
 
     if (response.data.files) {
       resultFiles.value = response.data.files;
     } else if (response.data.file) {
       resultFiles.value = [response.data.file];
+    }
+
+    // Set the success state to trigger logging
+    if (resultFiles.value.length > 0 && resultFiles.value[0].id) {
+      resultFileId.value = resultFiles.value[0].id;
+      operationSuccess.value = true;
     }
 
     showResultDialog.value = true;
@@ -406,6 +476,7 @@ const splitPdf = async () => {
   }
 };
 
+
 const downloadResult = async () => {
   if (resultFiles.value.length === 0) return;
 
@@ -416,7 +487,7 @@ const downloadResult = async () => {
       const fileName = resultFiles.value[0].filename;
 
       const response = await axios.get(
-          `${import.meta.env.VITE_PYTHON_API_URL}/download/${fileId}`,
+          `/python-api/download/${fileId}`,
           { responseType: 'blob' }
       );
 
@@ -430,7 +501,7 @@ const downloadResult = async () => {
     } else {
       // Download zip file
       const response = await axios.get(
-          `${import.meta.env.VITE_PYTHON_API_URL}/download-zip/${resultFiles.value[0].zip_id}`,
+          `/python-api/download-zip/${resultFiles.value[0].zip_id}`,
           { responseType: 'blob' }
       );
 

@@ -28,6 +28,7 @@
                 closable
             >
               {{ error }}
+
             </v-alert>
           </v-card-text>
         </v-card>
@@ -37,17 +38,23 @@
     <v-row v-if="pdfInfo">
       <v-col cols="12" md="7">
         <v-card>
-          <v-card-title>{{ $t('pdf.preview') }}</v-card-title>
+          <v-card-title class="d-flex align-center">
+            <span>{{ $t('pdf.preview') }}</span>
+            <v-spacer></v-spacer>
+            <v-chip v-if="isPreviewMetadataEdited" color="success" size="small" class="ml-2">
+              {{ $t('pdf.previewMetadataEdited') }}
+            </v-chip>
+          </v-card-title>
           <v-card-text>
-            <pdf
-                v-if="pdfUrl"
-                :src="pdfUrl"
+            <VuePdfEmbed
+                v-if="currentPreviewUrl"
+                :source="currentPreviewUrl"
                 :page="currentPage"
-                @num-pages="numPages = $event"
-                @page-loaded="pageLoaded"
+                @loaded="numPages = $event.numPages"
+                @rendered="pageLoaded"
                 @error="handleError"
                 style="display: block; width: 100%;"
-            ></pdf>
+            ></VuePdfEmbed>
             <v-progress-circular
                 v-if="loading"
                 indeterminate
@@ -73,6 +80,7 @@
                 :label="$t('pdf.title')"
                 class="mb-2"
                 clearable
+                @update:model-value="previewMetadataChanges"
             ></v-text-field>
 
             <v-text-field
@@ -80,6 +88,7 @@
                 :label="$t('pdf.author')"
                 class="mb-2"
                 clearable
+                @update:model-value="previewMetadataChanges"
             ></v-text-field>
 
             <v-text-field
@@ -87,6 +96,7 @@
                 :label="$t('pdf.subject')"
                 class="mb-2"
                 clearable
+                @update:model-value="previewMetadataChanges"
             ></v-text-field>
 
             <v-text-field
@@ -96,6 +106,7 @@
                 persistent-hint
                 class="mb-4"
                 clearable
+                @update:model-value="previewMetadataChanges"
             ></v-text-field>
 
             <v-alert
@@ -105,6 +116,7 @@
                 icon="mdi-information"
             >
               {{ $t('pdf.metadataNote') }}
+
             </v-alert>
           </v-card-text>
           <v-card-actions class="px-4 pb-4">
@@ -123,6 +135,7 @@
         </v-card>
       </v-col>
     </v-row>
+
 
     <v-dialog v-model="showResultDialog" max-width="500">
       <v-card>
@@ -157,11 +170,18 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+
+import { ref, computed, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import PdfEmbed from 'vue-pdf-embed';
-import { useAuthStore } from '../stores/auth';
+import VuePdfEmbed from 'vue-pdf-embed';
+import {useAuthStore} from '@/stores/auth';
+
+
+import LogOperation from '@/components/pdf/LogOperation.vue';
+const operationSuccess = ref(false);
+const resultFileId = ref(null);
+
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -174,6 +194,19 @@ const numPages = ref(0);
 const loading = ref(false);
 const error = ref(null);
 const fileId = ref(null);
+
+
+// For live preview
+const previewPdfUrl = ref(null);
+const isPreviewMetadataEdited = ref(false);
+const previewPending = ref(false);
+const previewTimeout = ref(null);
+
+// Current preview that's being displayed
+const currentPreviewUrl = computed(() => {
+  return previewPdfUrl.value || pdfUrl.value;
+});
+
 
 // Metadata options
 const metadata = ref({
@@ -202,11 +235,18 @@ const canUpdateMetadata = computed(() => {
 const handleFileChange = () => {
   if (selectedFile.value) {
     pdfUrl.value = URL.createObjectURL(selectedFile.value);
+
+    // Reset preview when changing file
+    previewPdfUrl.value = null;
+    isPreviewMetadataEdited.value = false;
     uploadFile();
   } else {
     pdfUrl.value = null;
+    previewPdfUrl.value = null;
     pdfInfo.value = null;
     fileId.value = null;
+    isPreviewMetadataEdited.value = false;
+
   }
 };
 
@@ -217,6 +257,27 @@ const pageLoaded = () => {
 const handleError = (err) => {
   console.error('PDF error:', err);
   loading.value = false;
+};
+
+
+
+const getLogDescription = () => {
+  const fields = [];
+  if (metadata.value.title) fields.push('title');
+  if (metadata.value.author) fields.push('author');
+  if (metadata.value.subject) fields.push('subject');
+  if (metadata.value.keywords) fields.push('keywords');
+
+  return `Updated PDF metadata (${fields.join(', ')})`;
+};
+
+const getLogMetadata = () => {
+  return {
+    fileName: selectedFile.value?.name,
+    metadataFields: metadata.value,
+    resultFile: resultFilename.value,
+    timestamp: new Date().toISOString()
+  };
 };
 
 const prevPage = () => {
@@ -244,7 +305,9 @@ const uploadFile = async () => {
     formData.append('pdf', selectedFile.value);
 
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/upload`,
+
+        `/python-api/upload`,
+
         formData,
         {
           headers: {
@@ -259,7 +322,9 @@ const uploadFile = async () => {
     // Attempt to read existing metadata
     try {
       const metadataResponse = await axios.get(
-          `${import.meta.env.VITE_PYTHON_API_URL}/metadata/${fileId.value}`
+
+          `/python-api/metadata/${fileId.value}`
+
       );
 
       if (metadataResponse.data && metadataResponse.data.metadata) {
@@ -269,6 +334,13 @@ const uploadFile = async () => {
           subject: metadataResponse.data.metadata.subject || '',
           keywords: metadataResponse.data.metadata.keywords || ''
         };
+
+
+        // Create initial preview with existing metadata
+        if (canUpdateMetadata.value) {
+          previewMetadataChanges();
+        }
+
       }
     } catch (metadataError) {
       console.warn('Could not fetch existing metadata:', metadataError);
@@ -281,6 +353,87 @@ const uploadFile = async () => {
     loading.value = false;
   }
 };
+
+
+// Function to create live preview of metadata changes
+const previewMetadataChanges = () => {
+  // Debounce preview requests
+  if (previewTimeout.value) {
+    clearTimeout(previewTimeout.value);
+  }
+
+  previewTimeout.value = setTimeout(async () => {
+    if (!fileId.value || previewPending.value) return;
+
+    // Only preview if we have valid metadata
+    if (!canUpdateMetadata.value) {
+      if (previewPdfUrl.value) {
+        URL.revokeObjectURL(previewPdfUrl.value);
+        previewPdfUrl.value = null;
+        isPreviewMetadataEdited.value = false;
+      }
+      return;
+    }
+
+    previewPending.value = true;
+
+    try {
+      const requestData = {
+        file_id: fileId.value,
+        metadata: {
+          title: metadata.value.title,
+          author: metadata.value.author,
+          subject: metadata.value.subject,
+          keywords: metadata.value.keywords
+        },
+        preview_only: true // Add a flag to indicate this is just a preview
+      };
+
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      // Add API key if user is authenticated
+      if (authStore.token) {
+        headers['X-API-Key'] = authStore.user?.apiKey;
+      }
+
+      const response = await axios.post(
+          `/python-api/edit-metadata`,
+          requestData,
+          { headers }
+      );
+
+      // Get the preview PDF
+      if (response.data && response.data.id) {
+        const previewResponse = await axios.get(
+            `/python-api/download/${response.data.id}`,
+            { responseType: 'blob' }
+        );
+
+        // If we had a previous preview, revoke its URL
+        if (previewPdfUrl.value) {
+          URL.revokeObjectURL(previewPdfUrl.value);
+        }
+
+        // Create a new object URL for the preview
+        previewPdfUrl.value = URL.createObjectURL(new Blob([previewResponse.data]));
+        isPreviewMetadataEdited.value = true;
+      }
+    } catch (err) {
+      console.error('Error creating metadata preview:', err);
+      // If preview fails, just use the original PDF
+      if (previewPdfUrl.value) {
+        URL.revokeObjectURL(previewPdfUrl.value);
+        previewPdfUrl.value = null;
+        isPreviewMetadataEdited.value = false;
+      }
+    } finally {
+      previewPending.value = false;
+    }
+  }, 500); // 500ms debounce
+};
+
 
 const updateMetadata = async () => {
   if (!fileId.value) return;
@@ -309,14 +462,40 @@ const updateMetadata = async () => {
     }
 
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/edit-metadata`,
+
+        `/python-api/edit-metadata`,
+
         requestData,
         { headers }
     );
 
     resultFileUrl.value = response.data.id;
+
+
+    resultFileId.value = response.data.id;
+    operationSuccess.value = true;
     resultFilename.value = response.data.filename || 'metadata_updated.pdf';
     showResultDialog.value = true;
+
+    // Update the preview to show the final PDF with updated metadata
+    const finalPdfResponse = await axios.get(
+        `/python-api/download/${response.data.id}`,
+        { responseType: 'blob' }
+    );
+
+    // If we had a previous preview, revoke its URL
+    if (previewPdfUrl.value) {
+      URL.revokeObjectURL(previewPdfUrl.value);
+    }
+
+    // Create a new object URL for the final PDF
+    previewPdfUrl.value = URL.createObjectURL(new Blob([finalPdfResponse.data]));
+    isPreviewMetadataEdited.value = true;
+
+    // Update fileId to point to the new PDF with updated metadata
+    fileId.value = response.data.id;
+    pdfInfo.value = response.data;
+
   } catch (error) {
     console.error('Error updating metadata:', error);
     error.value = error.response?.data?.error || t('pdf.metadataError');
@@ -330,7 +509,9 @@ const downloadResult = async () => {
 
   try {
     const response = await axios.get(
-        `${import.meta.env.VITE_PYTHON_API_URL}/download/${resultFileUrl.value}`,
+
+        `/python-api/download/${resultFileUrl.value}`,
+
         { responseType: 'blob' }
     );
 
@@ -341,9 +522,26 @@ const downloadResult = async () => {
     document.body.appendChild(link);
     link.click();
     link.remove();
+
+
+    // Clean up the URL
+    URL.revokeObjectURL(url);
+
   } catch (error) {
     console.error('Error downloading file:', error);
     error.value = t('pdf.downloadError');
   }
 };
+
+
+// Clean up object URLs when component is destroyed
+onBeforeUnmount(() => {
+  if (pdfUrl.value) {
+    URL.revokeObjectURL(pdfUrl.value);
+  }
+  if (previewPdfUrl.value) {
+    URL.revokeObjectURL(previewPdfUrl.value);
+  }
+});
+
 </script>

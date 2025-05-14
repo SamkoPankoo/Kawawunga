@@ -165,6 +165,15 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <LogOperation
+        v-if="operationSuccess"
+        :operation="'imagetopdf'"
+        :description="getLogDescription()"
+        :metadata="getLogMetadata()"
+
+    />
+
   </v-container>
 </template>
 
@@ -172,7 +181,11 @@
 import { ref, computed, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '../stores/auth';
+
+import {useAuthStore} from '@/stores/auth';
+import LogOperation from '@/components/pdf/LogOperation.vue';
+const operationSuccess = ref(false);
+const resultFileId = ref(null);
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -236,6 +249,22 @@ const createImagePreview = (file) => {
 
 const getImagePreview = (file) => {
   return imagePreviewUrls.value[file.name] || '';
+};
+
+
+const getLogDescription = () => {
+  return `Converted ${selectedFiles.value.length} images to PDF`;
+};
+
+const getLogMetadata = () => {
+  return {
+    fileNames: selectedFiles.value.map(f => f.name),
+    pageSize: pageSize.value,
+    orientation: pageOrientation.value,
+    fileCount: selectedFiles.value.length,
+    resultFile: resultFilename.value,
+    timestamp: new Date().toISOString()
+  };
 };
 
 const removeFile = (index) => {
@@ -304,12 +333,18 @@ const convertToPdf = async () => {
     }
 
     const response = await axios.post(
-        `${import.meta.env.VITE_PYTHON_API_URL}/image-to-pdf`,
+
+        `/python-api/image-to-pdf`,
+
         formData,
         { headers }
     );
 
     resultFileUrl.value = response.data.id;
+
+    resultFileId.value = response.data.id;
+    operationSuccess.value = true;
+
     resultFilename.value = response.data.filename || 'converted.pdf';
     showResultDialog.value = true;
   } catch (error) {
@@ -325,7 +360,9 @@ const downloadResult = async () => {
 
   try {
     const response = await axios.get(
-        `${import.meta.env.VITE_PYTHON_API_URL}/download/${resultFileUrl.value}`,
+
+        `/python-api/download/${resultFileUrl.value}`,
+
         { responseType: 'blob' }
     );
 

@@ -18,6 +18,10 @@ class PdfOperations:
     - Adding watermarks to PDFs
     - Converting images to PDF
     - Converting PDF to images
+
+    - Compressing PDFs
+    - Editing PDF metadata
+
     """
 
     def __init__(self, upload_folder):
@@ -143,6 +147,143 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error merging PDFs: {str(e)}")
 
+    def remove_pages(self, file_id, pages_to_remove):
+        """Remove specific pages from a PDF file"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Try with PyPDF first
+            try:
+                reader = PdfReader(file_info['filepath'])
+                writer = PdfWriter()
+                total_pages = len(reader.pages)
+
+                # Convert to integers and ensure within range
+                pages_to_remove = [int(p) for p in pages_to_remove if 1 <= int(p) <= total_pages]
+
+                # Check that we're not removing all pages
+                if len(pages_to_remove) >= total_pages:
+                    raise Exception("Cannot remove all pages from the PDF")
+
+                # Add all pages except those to be removed
+                for i in range(total_pages):
+                    if i + 1 not in pages_to_remove:  # Use 1-indexed page numbers
+                        writer.add_page(reader.pages[i])
+
+                new_file_id = str(uuid.uuid4())
+                new_filename = f"pages_removed_{file_info['filename']}"
+                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                with open(output_path, 'wb') as output_file:
+                    writer.write(output_file)
+
+            except Exception as e:
+                # If PyPDF fails, try with PyMuPDF
+                doc = fitz.open(file_info['filepath'])
+                total_pages = len(doc)
+
+                # Convert to integers and ensure within range
+                pages_to_remove = [int(p) for p in pages_to_remove if 1 <= int(p) <= total_pages]
+
+                # Check that we're not removing all pages
+                if len(pages_to_remove) >= total_pages:
+                    raise Exception("Cannot remove all pages from the PDF")
+
+                # PyMuPDF requires a list of pages to keep, not to remove
+                pages_to_keep = [i for i in range(total_pages) if i+1 not in pages_to_remove]
+
+                # Create a new document with only the pages we want to keep
+                new_doc = fitz.open()
+                for page_num in pages_to_keep:
+                    new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
+
+                new_file_id = str(uuid.uuid4())
+                new_filename = f"pages_removed_{file_info['filename']}"
+                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                new_doc.save(output_path)
+                new_doc.close()
+                doc.close()
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": total_pages - len(pages_to_remove),
+                "filepath": output_path,
+                "removed_pages": pages_to_remove
+            }
+
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error removing pages from PDF: {str(e)}")
+
+    def preview_remove_pages(self, file_id, pages_to_remove):
+        """Create a preview showing which pages will be removed in red"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            doc = fitz.open(file_info['filepath'])
+            total_pages = len(doc)
+
+            # Convert to integers and ensure within range
+            pages_to_remove = [int(p) for p in pages_to_remove if 1 <= int(p) <= total_pages]
+
+            # Add a red highlight to pages that will be removed
+            for page_num in pages_to_remove:
+                page = doc[page_num-1]  # 0-based index
+
+                # Get page dimensions
+                rect = page.rect
+
+                # Add a semi-transparent red overlay
+                page.draw_rect(rect, color=(1, 0, 0), fill=(1, 0, 0, 0.3), overlay=True)
+
+                # Add a "TO BE DELETED" watermark
+                font_size = 36
+                text = "TO BE DELETED"
+                tw = fitz.TextWriter(rect)
+
+                # V PyMuPDF TextWriter.append() nepoužívá parametr color přímo
+                # Místo toho musíme použít fitz.utils.getColor pro převod barvy
+                red_color = (1, 0, 0)  # RGB červená
+                tw.append((rect.width/2, rect.height/2), text, fontsize=font_size,
+                          color=red_color)  # Správné použití color parametru
+
+                tw.write_text(page, opacity=0.8)
+
+            new_file_id = str(uuid.uuid4())
+            new_filename = f"preview_delete_{file_info['filename']}"
+            output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+            doc.save(output_path)
+            doc.close()
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": total_pages,
+                "filepath": output_path,
+                "preview": True,
+                "pages_to_remove": pages_to_remove
+            }
+
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error creating delete preview: {str(e)}")
+
+
     def split_pdf(self, file_id, split_method='byPage', ranges=None, pages=None, create_zip=True):
         """Split a PDF file based on specified method"""
         if file_id not in self.pdf_storage:
@@ -199,8 +340,10 @@ class PdfOperations:
                         filename = f"pages_{start+1}-{end}.pdf"
                         output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
 
+
                         with open(output_path, 'wb') as output_file:
                             writer.write(output_file)
+
 
                         pdf_info = {
                             "id": split_id,
@@ -284,12 +427,14 @@ class PdfOperations:
                         output_doc = fitz.open()
                         output_doc.insert_pdf(doc, from_page=start, to_page=end)
 
+
                         split_id = str(uuid.uuid4())
                         filename = f"pages_{start+1}-{end+1}.pdf"
                         output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
 
                         output_doc.save(output_path)
                         output_doc.close()
+
 
                         pdf_info = {
                             "id": split_id,
@@ -356,7 +501,9 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error splitting PDF: {str(e)}")
 
-    def rotate_pdf(self, file_id, angle=90, pages=None):
+
+    def rotate_pdf(self, file_id, angle=90, pages=None, preview_only=False):
+
         """Rotate pages in a PDF file"""
         if file_id not in self.pdf_storage:
             raise Exception("File not found")
@@ -403,10 +550,17 @@ class PdfOperations:
                     # Apply the rotation
                     page.set_rotation(new_rotation)
 
-                # Save rotated PDF
-                new_file_id = str(uuid.uuid4())
-                new_filename = f"rotated_{file_info['filename']}"
-                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                # For preview, use a temporary filename with "preview_" prefix
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_rotated_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"rotated_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
 
                 doc.save(output_path)
                 doc.close()
@@ -445,10 +599,17 @@ class PdfOperations:
 
                     writer.add_page(page)
 
-                # Save rotated PDF
-                new_file_id = str(uuid.uuid4())
-                new_filename = f"rotated_{file_info['filename']}"
-                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                # For preview, use a temporary filename with "preview_" prefix
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_rotated_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"rotated_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
 
                 with open(output_path, 'wb') as output_file:
                     writer.write(output_file)
@@ -458,8 +619,12 @@ class PdfOperations:
                 "id": new_file_id,
                 "filename": new_filename,
                 "pages": total_pages,
-                "filepath": output_path
+
+                "filepath": output_path,
+                "preview": preview_only
             }
+
+            # Store in pdf_storage (even previews, they'll be cleaned up later)
 
             self.pdf_storage[new_file_id] = pdf_info
             return pdf_info
@@ -467,7 +632,9 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error rotating PDF: {str(e)}")
 
-    def add_watermark(self, file_id, text, opacity=0.3, color="gray", size=36, angle=45, pages=None):
+
+    def add_watermark(self, file_id, text, opacity=0.3, color="gray", size=36, angle=45, pages=None, preview_only=False):
+
         """Add text watermark to PDF pages"""
         if file_id not in self.pdf_storage:
             raise Exception("File not found")
@@ -523,10 +690,16 @@ class PdfOperations:
                     text_writer.append((center_x, center_y), text, fontsize=fontsize, rotate=angle)
                     text_writer.write_text(page)
 
-                # Save watermarked PDF
-                new_file_id = str(uuid.uuid4())
-                new_filename = f"watermarked_{file_info['filename']}"
-                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                # For preview, use a temporary filename with "preview_" prefix
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_watermarked_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"watermarked_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
 
                 doc.save(output_path)
                 doc.close()
@@ -562,6 +735,7 @@ class PdfOperations:
                 if pages is None or not pages:
                     pages = list(range(1, total_pages + 1))
 
+
                 # Validate pages
                 pages = [p for p in pages if 1 <= p <= total_pages]
 
@@ -595,10 +769,16 @@ class PdfOperations:
 
                     writer.add_page(page)
 
-                # Save watermarked PDF
-                new_file_id = str(uuid.uuid4())
-                new_filename = f"watermarked_{file_info['filename']}"
-                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                # For preview, use a temporary filename with "preview_" prefix
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_watermarked_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"watermarked_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
 
                 with open(output_path, 'wb') as output_file:
                     writer.write(output_file)
@@ -608,14 +788,520 @@ class PdfOperations:
                 "id": new_file_id,
                 "filename": new_filename,
                 "pages": total_pages,
-                "filepath": output_path
+
+                "filepath": output_path,
+                "preview": preview_only
             }
+
+            # Store in pdf_storage (even previews, they'll be cleaned up later)
 
             self.pdf_storage[new_file_id] = pdf_info
             return pdf_info
 
         except Exception as e:
             raise Exception(f"Error adding watermark to PDF: {str(e)}")
+
+
+    def compress_pdf(self, file_id, compression_level='medium'):
+        """
+        Compress a PDF file to reduce its size - improved version
+        """
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Map compression level to actual compression settings
+            compression_settings = {
+                'low': {'image_quality': 80, 'dpi': 150, 'pdfsettings': '/prepress'},
+                'medium': {'image_quality': 50, 'dpi': 120, 'pdfsettings': '/ebook'},
+                'high': {'image_quality': 30, 'dpi': 72, 'pdfsettings': '/screen'}
+            }
+
+            # Default to medium if invalid level
+            if compression_level not in compression_settings:
+                compression_level = 'medium'
+
+            settings = compression_settings[compression_level]
+
+            # Create a new file ID and path
+            new_file_id = str(uuid.uuid4())
+            new_filename = f"compressed_{file_info['filename']}"
+            output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+            temp_output = os.path.join(tempfile.gettempdir(), f"temp_{new_file_id}.pdf")
+
+            # APPROACH 1: Try using Ghostscript if available - most effective
+            try:
+                import subprocess
+                gs_params = ['-dPDFSETTINGS=' + settings['pdfsettings']]
+
+                # Execute ghostscript
+                subprocess.run(
+                    ['gs', '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.4',
+                    gs_params[0], '-dNOPAUSE', '-dQUIET', '-dBATCH',
+                    f'-sOutputFile={temp_output}', file_info['filepath']],
+                    check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+
+                if os.path.exists(temp_output):
+                    shutil.copy(temp_output, output_path)
+                    os.remove(temp_output)
+            except Exception as gs_error:
+                print(f"Ghostscript compression failed: {gs_error}")
+
+                # APPROACH 2: Try PyMuPDF for image-based compression
+                try:
+                    doc = fitz.open(file_info['filepath'])
+
+                    # Process each page for image compression
+                    for page_num in range(len(doc)):
+                        page = doc[page_num]
+                        image_list = page.get_images(full=True)
+
+                        for img_index, img in enumerate(image_list):
+                            xref = img[0]  # Image reference number
+
+                            try:
+                                base_image = doc.extract_image(xref)
+                                image_bytes = base_image["image"]
+
+                                # Convert to PIL image for recompression
+                                from PIL import Image
+                                import io
+
+                                # Load the image
+                                image = Image.open(io.BytesIO(image_bytes))
+
+                                # Resize image based on compression level
+                                if compression_level == 'high':
+                                    # Reduce by 50%
+                                    orig_width, orig_height = image.size
+                                    new_width = int(orig_width * 0.5)
+                                    new_height = int(orig_height * 0.5)
+                                    image = image.resize((new_width, new_height), Image.LANCZOS)
+                                elif compression_level == 'medium':
+                                    # Reduce by 25%
+                                    orig_width, orig_height = image.size
+                                    new_width = int(orig_width * 0.75)
+                                    new_height = int(orig_height * 0.75)
+                                    image = image.resize((new_width, new_height), Image.LANCZOS)
+                            except Exception as e:
+                                print(f"Error processing image: {e}")
+
+                    # Save with aggressive compression settings
+                    doc.save(output_path,
+                            garbage=4,  # Clean up unused objects
+                            clean=True,  # More cleanup
+                            deflate=True,  # Compress streams
+                            deflate_images=True,  # Compress images
+                            deflate_fonts=True)  # Compress fonts
+                    doc.close()
+                except Exception as mupdf_error:
+                    print(f"PyMuPDF compression failed: {mupdf_error}")
+
+                    # APPROACH 3: PyPDF as last resort
+                    reader = PdfReader(file_info['filepath'])
+                    writer = PdfWriter()
+
+                    for page in reader.pages:
+                        writer.add_page(page)
+
+                    writer.compress_content_streams = True
+
+                    with open(output_path, 'wb') as output_file:
+                        writer.write(output_file)
+
+            # If the output file doesn't exist or is somehow larger than the original,
+            # create a more aggressive compression using a different approach
+            if not os.path.exists(output_path) or os.path.getsize(output_path) >= os.path.getsize(file_info['filepath']):
+                # Try qpdf as a last resort if available
+                try:
+                    import subprocess
+                    subprocess.run(
+                        ['qpdf', '--linearize', '--compress-streams=y', '--decode-level=specialized',
+                         file_info['filepath'], output_path],
+                        check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
+                except Exception:
+                    # If all else fails, just use the original with JPG conversion trick
+                    # This method is more aggressive but might reduce quality
+                    try:
+                        # Open with PyMuPDF
+                        doc = fitz.open(file_info['filepath'])
+                        pdf_writer = fitz.open()
+
+                        # Convert each page to JPG then back to PDF
+                        for page_num in range(len(doc)):
+                            page = doc[page_num]
+                            pix = page.get_pixmap(matrix=fitz.Matrix(1, 1))
+
+                            # Higher compression for higher levels
+                            quality = 30
+                            if compression_level == 'low':
+                                quality = 60
+                            elif compression_level == 'medium':
+                                quality = 40
+
+                            img_data = pix.tobytes("jpeg", quality=quality)
+                            img = Image.open(io.BytesIO(img_data))
+
+                            # Create new PDF page
+                            new_page = pdf_writer.new_page(width=page.rect.width, height=page.rect.height)
+                            new_page.insert_image(page.rect, stream=img_data)
+
+                        # Save the resultant PDF
+                        pdf_writer.save(output_path)
+                        pdf_writer.close()
+                        doc.close()
+                    except Exception as e:
+                        print(f"Final compression method failed: {e}")
+                        # Last resort - just copy the file if all methods fail
+                        shutil.copy(file_info['filepath'], output_path)
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": file_info['pages'],  # Same number of pages as original
+                "filepath": output_path,
+                "compression_level": compression_level,
+                "original_size": os.path.getsize(file_info['filepath']),
+                "compressed_size": os.path.getsize(output_path),
+                "compression_ratio": 1 - (os.path.getsize(output_path) / os.path.getsize(file_info['filepath']))
+            }
+
+            # Store in pdf_storage
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error compressing PDF: {str(e)}")
+
+    def edit_metadata(self, file_id, metadata, preview_only=False):
+        """
+        Edit metadata of a PDF file
+
+        Args:
+            file_id: ID of the PDF to edit
+            metadata: Dictionary with metadata fields (title, author, subject, keywords)
+            preview_only: Whether this is just a preview
+
+        Returns:
+            Dictionary with updated PDF info
+        """
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Initialize PDF reader and writer
+            reader = PdfReader(file_info['filepath'])
+            writer = PdfWriter()
+
+            # Add all pages from the original document
+            for page in reader.pages:
+                writer.add_page(page)
+
+            # Prepare metadata
+            meta = {}
+            if metadata.get("title"):
+                meta["/Title"] = metadata["title"]
+            if metadata.get("author"):
+                meta["/Author"] = metadata["author"]
+            if metadata.get("subject"):
+                meta["/Subject"] = metadata["subject"]
+            if metadata.get("keywords"):
+                meta["/Keywords"] = metadata["keywords"]
+
+            # Apply metadata
+            writer.add_metadata(meta)
+
+            # Set output path
+            if preview_only:
+                new_file_id = str(uuid.uuid4())
+                new_filename = f"preview_metadata_{file_info['filename']}"
+                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+            else:
+                new_file_id = str(uuid.uuid4())
+                new_filename = f"metadata_{file_info['filename']}"
+                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+            # Write the PDF with updated metadata
+            with open(output_path, 'wb') as output_file:
+                writer.write(output_file)
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": len(reader.pages),
+                "filepath": output_path,
+                "preview": preview_only,
+                "metadata": metadata
+            }
+
+            # Store in pdf_storage
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error editing metadata: {str(e)}")
+
+    def get_metadata(self, file_id):
+        """Get metadata from a PDF file"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Try with PyPDF first
+            try:
+                reader = PdfReader(file_info['filepath'])
+                if reader.metadata:
+                    metadata = reader.metadata
+
+                    # Extract metadata fields
+                    result = {}
+                    if metadata.title:
+                        result["title"] = metadata.title
+                    if metadata.author:
+                        result["author"] = metadata.author
+                    if metadata.subject:
+                        result["subject"] = metadata.subject
+                    if metadata.keywords:
+                        result["keywords"] = metadata.keywords
+
+                    return result
+                else:
+                    return {}
+
+            except Exception as e:
+                # If PyPDF fails, try with PyMuPDF
+                doc = fitz.open(file_info['filepath'])
+                metadata = doc.metadata
+
+                # Extract metadata fields
+                result = {}
+                if "title" in metadata and metadata["title"]:
+                    result["title"] = metadata["title"]
+                if "author" in metadata and metadata["author"]:
+                    result["author"] = metadata["author"]
+                if "subject" in metadata and metadata["subject"]:
+                    result["subject"] = metadata["subject"]
+                if "keywords" in metadata and metadata["keywords"]:
+                    result["keywords"] = metadata["keywords"]
+
+                doc.close()
+                return result
+
+        except Exception as e:
+            # Return empty metadata if extraction fails
+            print(f"Error extracting metadata: {str(e)}")
+            return {}
+
+    def edit_metadata(self, file_id, metadata, preview_only=False):
+        """Edit metadata of a PDF file"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Try with PyPDF first
+            try:
+                reader = PdfReader(file_info['filepath'])
+                writer = PdfWriter()
+
+                # Add all pages from the original document
+                for page in reader.pages:
+                    writer.add_page(page)
+
+                # Prepare metadata
+                meta = {}
+                if metadata.get("title"):
+                    meta["/Title"] = metadata["title"]
+                if metadata.get("author"):
+                    meta["/Author"] = metadata["author"]
+                if metadata.get("subject"):
+                    meta["/Subject"] = metadata["subject"]
+                if metadata.get("keywords"):
+                    meta["/Keywords"] = metadata["keywords"]
+
+                # Apply metadata
+                writer.add_metadata(meta)
+
+                # Set output path
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_metadata_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"metadata_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                # Write the PDF with updated metadata
+                with open(output_path, 'wb') as output_file:
+                    writer.write(output_file)
+
+            except Exception as e:
+                # If PyPDF fails, try with PyMuPDF
+                doc = fitz.open(file_info['filepath'])
+
+                # Add metadata
+                meta = {}
+                if metadata.get("title"):
+                    meta["title"] = metadata["title"]
+                if metadata.get("author"):
+                    meta["author"] = metadata["author"]
+                if metadata.get("subject"):
+                    meta["subject"] = metadata["subject"]
+                if metadata.get("keywords"):
+                    meta["keywords"] = metadata["keywords"]
+
+                # Update the document's metadata
+                doc.set_metadata(meta)
+
+                # Set output path
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_metadata_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"metadata_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                # Save the PDF with updated metadata
+                doc.save(output_path)
+                doc.close()
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": file_info['pages'],
+                "filepath": output_path,
+                "preview": preview_only,
+                "metadata": metadata
+            }
+
+            # Store in pdf_storage
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error editing metadata: {str(e)}")
+
+    def protect_pdf(self, file_id, user_password, owner_password=None,
+                   allow_printing=True, allow_copying=True):
+        """
+        Add password protection to a PDF file
+
+        Args:
+            file_id: ID of the PDF to protect
+            user_password: Password required to open the document
+            owner_password: Password with full permissions (defaults to user_password if None)
+            allow_printing: Whether to allow printing
+            allow_copying: Whether to allow copying content
+
+        Returns:
+            Dictionary with protected PDF info
+        """
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Initialize PDF reader and writer
+            reader = PdfReader(file_info['filepath'])
+            writer = PdfWriter()
+
+            # Add all pages from the original document
+            for page in reader.pages:
+                writer.add_page(page)
+
+            # Set permissions - PyPDF permissions are bit flags
+            permissions = 0
+            if allow_printing:
+                permissions |= 4  # Print document (bit 2)
+            if allow_copying:
+                permissions |= 16  # Extract content (bit 4)
+
+            # Apply encryption
+            if owner_password is None or owner_password == "":
+                owner_password = user_password
+
+            # Ensure we use the more secure 128-bit encryption
+            writer.encrypt(
+                user_password=user_password,
+                owner_password=owner_password,
+                use_128bit=True,
+                permissions_flag=permissions
+            )
+
+            # Set output path
+            new_file_id = str(uuid.uuid4())
+            new_filename = f"protected_{file_info['filename']}"
+            output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+            # Write the protected PDF
+            with open(output_path, 'wb') as output_file:
+                writer.write(output_file)
+
+            # Verify the PDF is actually password-protected
+            try:
+                # Try to open the PDF without a password - should raise an exception
+                verify_reader = PdfReader(output_path)
+
+                # If we got here, the PDF isn't properly protected
+                # Let's try a different method with PyMuPDF
+                try:
+                    doc = fitz.open(file_info['filepath'])
+
+                    # Apply permissions and encryption
+                    perm = 0
+                    if allow_printing:
+                        perm |= fitz.PDF_PERM_PRINT
+                    if allow_copying:
+                        perm |= fitz.PDF_PERM_COPY
+
+                    # Save with encryption
+                    doc.save(
+                        output_path,
+                        encryption=fitz.PDF_ENCRYPT_AES_128,  # Use AES 128-bit encryption
+                        user_pw=user_password,
+                        owner_pw=owner_password,
+                        permissions=perm
+                    )
+                    doc.close()
+                except Exception as mupdf_error:
+                    print(f"PyMuPDF protection failed: {mupdf_error}")
+                    # Just continue with original output
+            except:
+                # Exception raised means the PDF is properly password-protected
+                pass
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": len(reader.pages),
+                "filepath": output_path,
+                "protected": True
+            }
+
+            # Store in pdf_storage
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error adding password protection: {str(e)}")
+
 
     def convert_images_to_pdf(self, image_files, page_size='A4', orientation='portrait'):
         """
@@ -879,12 +1565,24 @@ class PdfOperations:
         now = time.time()
         max_age_seconds = max_age_hours * 3600
 
+
+        # Preview files should be cleaned up more aggressively
+        preview_max_age_seconds = 3600  # 1 hour
+
+
         for root, dirs, files in os.walk(self.upload_folder):
             for filename in files:
                 filepath = os.path.join(root, filename)
                 if os.path.isfile(filepath):
                     file_age = now - os.path.getmtime(filepath)
-                    if file_age > max_age_seconds:
+
+
+                    # Clean up preview files more aggressively
+                    is_preview = "preview_" in filename
+                    max_age = preview_max_age_seconds if is_preview else max_age_seconds
+
+                    if file_age > max_age:
+
                         try:
                             os.remove(filepath)
                             print(f"Removed old file: {filepath}")

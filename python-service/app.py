@@ -6,6 +6,9 @@ import shutil
 import zipfile
 import io
 import tempfile
+
+
+import fnmatch
 import time
 from werkzeug.utils import secure_filename
 from flask import Flask, request, jsonify, send_file, make_response, after_this_request
@@ -13,6 +16,8 @@ from flask_cors import CORS
 
 # Initialize Flask application
 app = Flask(__name__)
+ADMIN_API_KEY = None
+
 
 # Configure CORS before using any app configuration
 CORS(app, resources={r"/*": {"origins": "*",
@@ -46,14 +51,58 @@ except ImportError:
         print(f"[LOG] Operation: {action}, File: {file_name}, ID: {file_id}")
         return True
 
+
+def get_admin_api_key():
+    global ADMIN_API_KEY
+    if ADMIN_API_KEY:
+        return ADMIN_API_KEY
+
+    try:
+        import urllib.request
+        import json
+
+        # Získať API kľúč z debug endpointu
+        backend_url = os.environ.get('BACKEND_URL', 'http://backend:3000/api')
+        response = urllib.request.urlopen(f"{backend_url}/pdfLogs/debug-key")
+        data = json.loads(response.read().decode('utf-8'))
+        ADMIN_API_KEY = data.get('apiKey')
+        print(f"Loaded admin API key: {ADMIN_API_KEY[:10]}...")
+        return ADMIN_API_KEY
+    except Exception as e:
+        print(f"Failed to get admin API key: {e}")
+        return "admin-api-key-placeholder"
+
+# Helper function to get API key from request
+def get_api_key_from_request():
+    api_key = None
+
+
+    # Try to get API key from X-API-Key header
+    if 'X-API-Key' in request.headers:
+        api_key = request.headers.get('X-API-Key')
+
+    # If not found, try Authorization header (Bearer token)
+    elif 'Authorization' in request.headers and request.headers.get('Authorization', '').startswith('Bearer '):
+        api_key = request.headers.get('Authorization')[7:]  # Remove "Bearer " prefix
+
+    # If still no API key, use admin key as fallback
+    if not api_key:
+        api_key = get_admin_api_key()
+        print(f"Using admin API key for logging: {api_key[:10] if api_key else 'None'}...")
+
+    return api_key
+
 # Logging function
-def log_operation(api_key, action, file_id=None, filename=None):
+def log_operation(api_key, action, file_id=None, filename=None, description=None):
+
     try:
         # Try using the imported logger if available
         return logger_log_operation(
             api_key=api_key,
             action=action,
-            description=f"{action} operation",
+
+            description=description or f"{action} operation on {filename or 'unknown file'}",
+
             file_id=file_id,
             file_name=filename,
             operation_type=action
@@ -61,7 +110,10 @@ def log_operation(api_key, action, file_id=None, filename=None):
     except Exception as e:
         # Fallback to simple console logging
         print(f"[LOG] Operation: {action}, File: {filename}, ID: {file_id}, API Key: {api_key[:5] if api_key else 'None'}...")
-        return True
+
+        print(f"[LOG] Error during logging: {str(e)}")
+        return False
+
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -76,12 +128,23 @@ def upload_file():
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
 
+
     if not file.filename.lower().endswith('.pdf'):
         return jsonify({'error': 'File must be a PDF'}), 400
 
     try:
         # Use the PdfOperations class to handle the upload
         pdf_info = pdf_ops.save_pdf(file)
+
+        # Log the upload operation
+        api_key = get_api_key_from_request()
+        log_operation(
+            api_key=api_key,
+            action='upload',
+            file_id=pdf_info['id'],
+            filename=pdf_info['filename'],
+            description=f"Uploaded file: {pdf_info['filename']}"
+        )
 
         # Return metadata (excluding internal filepath)
         response_info = pdf_info.copy()
@@ -128,6 +191,16 @@ def download_file(file_id):
         filename = f"download_{file_id}.pdf"
 
     try:
+        # Log the download operation
+        api_key = get_api_key_from_request()
+        log_operation(
+            api_key=api_key,
+            action='download',
+            file_id=file_id,
+            filename=filename,
+            description=f"Downloaded file: {filename}"
+        )
+
         # Create a response with the file
         response = make_response(send_file(
             filepath,
@@ -155,38 +228,121 @@ def download_zip(zip_id):
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type, X-API-Key')
         return response
 
-    # Try to get the file path from PdfOperations
-    filepath = pdf_ops.get_zip_path(zip_id)
-
-    if not filepath and zip_id in zip_storage:
-        filepath = zip_storage[zip_id]['filepath']
-
-    if not filepath:
-        return jsonify({'error': 'ZIP file not found'}), 404
-
-    filename = ""
-    if zip_id in zip_storage:
-        filename = zip_storage[zip_id]['filename']
-    else:
-        filename = f"download_{zip_id}.zip"
-
     try:
-        # Create a response with the file
-        response = make_response(send_file(
-            filepath,
-            download_name=filename,
-            mimetype='application/zip',
-            as_attachment=True
-        ))
+        app.logger.info(f"Requesting ZIP file with ID: {zip_id}")
 
-        # Add CORS headers explicitly
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Expose-Headers', 'Content-Disposition')
+        # Find the ZIP file information
+        zip_filepath = None
+        zip_filename = f"images_{zip_id}.zip"
 
-        return response
+        # Method 1: Look in pdf_ops.pdf_storage for direct matches
+        if zip_id in pdf_ops.pdf_storage:
+            file_info = pdf_ops.pdf_storage[zip_id]
+            if 'filepath' in file_info:
+                zip_filepath = file_info['filepath']
+                zip_filename = file_info.get('filename', zip_filename)
+                app.logger.info(f"Found direct match in pdf_storage: {zip_filepath}")
+
+        # Method 2: Look in pdf_ops.pdf_storage for references to zip_id
+        if not zip_filepath:
+            for file_id, file_info in pdf_ops.pdf_storage.items():
+                if 'zip_id' in file_info and file_info['zip_id'] == zip_id:
+                    # Check various possible keys where the zip path might be stored
+                    if 'zip_path' in file_info:
+                        zip_filepath = file_info['zip_path']
+                        app.logger.info(f"Found zip_path in pdf_storage: {zip_filepath}")
+                        break
+                    elif 'zip_filepath' in file_info:
+                        zip_filepath = file_info['zip_filepath']
+                        app.logger.info(f"Found zip_filepath in pdf_storage: {zip_filepath}")
+                        break
+
+        # Method 3: Check the old zip_storage dictionary
+        if not zip_filepath and zip_id in zip_storage:
+            zip_info = zip_storage[zip_id]
+            if 'filepath' in zip_info:
+                zip_filepath = zip_info['filepath']
+                zip_filename = zip_info.get('filename', zip_filename)
+                app.logger.info(f"Found in zip_storage: {zip_filepath}")
+
+        # Method 4: Look for ZIP files in the uploads directory
+        if not zip_filepath:
+            search_pattern = f"*{zip_id}*.zip"
+            for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+                if zip_id in filename and filename.endswith('.zip'):
+                    zip_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    app.logger.info(f"Found by filesystem search: {zip_filepath}")
+                    break
+
+        # If we still couldn't find it, create a new ZIP from the images
+        if not zip_filepath:
+            app.logger.info(f"ZIP not found, attempting to create it from individual files")
+
+            # Find all image files with this zip_id reference
+            image_files = []
+            for file_id, file_info in pdf_ops.pdf_storage.items():
+                if 'zip_id' in file_info and file_info['zip_id'] == zip_id and 'filepath' in file_info:
+                    image_files.append(file_info)
+
+            if image_files:
+                # Create a new ZIP file
+                zip_filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"images_{zip_id}.zip")
+
+                with zipfile.ZipFile(zip_filepath, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                    for img_info in image_files:
+                        img_path = img_info['filepath']
+                        img_name = img_info['filename']
+                        if os.path.exists(img_path):
+                            zip_file.write(img_path, img_name)
+
+                app.logger.info(f"Created new ZIP file: {zip_filepath}")
+
+        # Final check if we have a valid file
+        if not zip_filepath or not os.path.exists(zip_filepath):
+            app.logger.error(f"ZIP file not found for ID: {zip_id}")
+            return jsonify({'error': 'ZIP file not found'}), 404
+
+        app.logger.info(f"Sending ZIP file: {zip_filepath}")
+
+        # Log the download operation
+        api_key = get_api_key_from_request()
+        log_operation(
+            api_key=api_key,
+            action='download-zip',
+            file_id=zip_id,
+            filename=zip_filename,
+            description=f"Downloaded ZIP archive: {zip_filename}"
+        )
+
+        try:
+            # Create a response with the file
+            response = make_response(send_file(
+                zip_filepath,
+                download_name=zip_filename,
+                mimetype='application/zip',
+                as_attachment=True
+            ))
+
+            # Add CORS headers explicitly
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Expose-Headers', 'Content-Disposition')
+
+            return response
+        except Exception as e:
+            app.logger.error(f"Error sending ZIP file {zip_filepath}: {str(e)}")
+            return jsonify({'error': f'Error downloading ZIP file: {str(e)}'}), 500
     except Exception as e:
-        app.logger.error(f"Error sending ZIP file {filepath}: {str(e)}")
-        return jsonify({'error': f'Error downloading ZIP file: {str(e)}'}), 500
+        app.logger.error(f"General error in download_zip route for ID {zip_id}: {str(e)}")
+
+        # Create a custom error response
+        error_response = jsonify({'error': f'Error processing ZIP download request: {str(e)}'})
+        error_response.status_code = 500
+
+        # Add CORS headers to error response
+        error_response.headers.add('Access-Control-Allow-Origin', '*')
+
+        return error_response
+
 
 @app.route('/merge', methods=['POST'])
 def merge_files():
@@ -211,17 +367,30 @@ def merge_files():
         output_filename = f"merged_{len(files)}_files.pdf"
 
     try:
-        # Use the PdfOperations class to merge PDFs properly
-        pdf_info = pdf_ops.merge_pdfs(files, output_filename)
 
-        # Also store in the old system for compatibility with other functions
+        pdf_info = pdf_ops.merge_pdfs(files, output_filename)
         file_storage[pdf_info['id']] = pdf_info
 
-        # Log operation
-        api_key = request.headers.get('X-API-Key')
-        log_operation(api_key, 'merge', pdf_info['id'], pdf_info['filename'])
+        # Get API key for logging
+        api_key = get_api_key_from_request()
 
-        # Return metadata (excluding internal filepath)
+        # Create detailed description
+        filenames = ", ".join([f.filename for f in files])
+        description = f"Merged {len(files)} files: {filenames}"
+
+        # Log the operation
+        log_success = logger_log_operation(
+            api_key=api_key,
+            action='merge',
+            description=description,
+            file_id=pdf_info['id'],
+            file_name=pdf_info['filename'],
+            operation_type='merge'
+        )
+
+        if not log_success:
+            print(f"WARNING: Failed to log merge operation with API key: {api_key[:10] if api_key else 'None'}...")
+
         response_info = pdf_info.copy()
         response_info.pop('filepath', None)
 
@@ -277,10 +446,37 @@ def split_pdf():
                     'filepath': file_info['zip_path']
                 }
 
-        # Log operation
-        api_key = request.headers.get('X-API-Key')
-        file_name = pdf_ops.pdf_storage[file_id]['filename'] if file_id in pdf_ops.pdf_storage else "Unknown"
-        log_operation(api_key, 'split', file_id, file_name)
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create a descriptive message based on the split method
+        if split_method == 'byPage':
+            description = f"Split PDF into {len(result_files)} individual pages"
+        elif split_method == 'byRanges':
+            description = f"Split PDF into {len(ranges) if ranges else 0} ranges"
+        elif split_method == 'extractPages':
+            description = f"Extracted {len(pages) if pages else 0} pages from PDF"
+        else:
+            description = f"Split PDF using method: {split_method}"
+
+        # Get original filename
+        original_filename = None
+        if file_id in pdf_ops.pdf_storage:
+            original_filename = pdf_ops.pdf_storage[file_id].get('filename', 'Unknown')
+        elif file_id in file_storage:
+            original_filename = file_storage[file_id].get('filename', 'Unknown')
+
+        # Log operation using a representative file (first one)
+        if result_files:
+            log_operation(
+                api_key,
+                'split',
+                file_id=result_files[0].get('id'),
+                filename=result_files[0].get('filename'),
+                description=description
+            )
+
 
         # Return metadata (excluding internal filepaths)
         response_files = []
@@ -292,14 +488,17 @@ def split_pdf():
             response_files.append(response_info)
 
         return jsonify({"files": response_files})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/rotate', methods=['POST'])
 def rotate_pdf():
     data = request.json
     if not data or 'file_id' not in data:
         return jsonify({'error': 'Missing required parameters'}), 400
+
 
     file_id = data['file_id']
 
@@ -326,9 +525,36 @@ def rotate_pdf():
         # Also store in the old system for compatibility
         file_storage[pdf_info['id']] = pdf_info
 
-        # Log operation
-        api_key = request.headers.get('X-API-Key')
-        log_operation(api_key, 'rotate', pdf_info['id'], pdf_info['filename'])
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Get original filename for better description
+        original_filename = "unknown"
+        if file_id in pdf_ops.pdf_storage:
+            original_filename = pdf_ops.pdf_storage[file_id].get('filename', 'unknown')
+
+        # Create detailed description
+        page_desc = "all pages"
+        if pages:
+            if len(pages) == 1:
+                page_desc = f"page {pages[0]}"
+            else:
+                page_desc = f"{len(pages)} pages"
+
+        description = f"Rotated {page_desc} by {angle}° in {original_filename}"
+
+        # Log with full details
+        log_success = logger_log_operation(
+            api_key=api_key,
+            action='rotate',
+            description=description,
+            file_id=pdf_info['id'],
+            file_name=pdf_info['filename'],
+            operation_type='rotate'
+        )
+
+        if not log_success:
+            print("WARNING: Failed to log rotate operation")
 
         # Return metadata (excluding internal filepath)
         response_info = pdf_info.copy()
@@ -337,6 +563,7 @@ def rotate_pdf():
         return jsonify(response_info)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/watermark', methods=['POST'])
 def add_watermark():
@@ -370,6 +597,7 @@ def add_watermark():
         except ValueError:
             angle = 45
 
+
     # Handle page selection
     page_selection = data.get('pageSelection', 'all')
     pages = data.get('pages', [])
@@ -393,9 +621,27 @@ def add_watermark():
         # Also store in the old system for compatibility
         file_storage[pdf_info['id']] = pdf_info
 
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create a descriptive message
+        page_desc = "all pages"
+        if pages:
+            if len(pages) == 1:
+                page_desc = f"page {pages[0]}"
+            else:
+                page_desc = f"{len(pages)} pages"
+
+        description = f"Added watermark '{watermark_text}' to {page_desc}"
+
         # Log operation
-        api_key = request.headers.get('X-API-Key')
-        log_operation(api_key, 'watermark', pdf_info['id'], pdf_info['filename'])
+        log_operation(
+            api_key,
+            'watermark',
+            pdf_info['id'],
+            pdf_info['filename'],
+            description
+        )
 
         # Return metadata (excluding internal filepath)
         response_info = pdf_info.copy()
@@ -404,6 +650,67 @@ def add_watermark():
         return jsonify(response_info)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+
+@app.route('/pdf-to-image-zip', methods=['POST'])
+def pdf_to_image_zip():
+    try:
+
+        data = request.json
+        if not data or 'file_id' not in data:
+            return jsonify({'error': 'Missing required parameters'}), 400
+
+        file_id = data['file_id']
+        format = data.get('format', 'png')
+        dpi = int(data.get('dpi', 300))
+        pages = data.get('pages')
+
+        # Check if file exists
+        if file_id not in pdf_ops.pdf_storage:
+            return jsonify({'error': 'File not found'}), 404
+
+        # Convert PDF to images
+        result_files = pdf_ops.convert_pdf_to_images(file_id, format, dpi, pages, True)
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Log operation
+        log_operation(
+            api_key,
+            'pdf-to-image',
+            file_id,
+            pdf_ops.pdf_storage[file_id]['filename'],
+            f"Converted PDF to {len(result_files)} {format.upper()} images"
+        )
+
+        # Create a temporary ZIP file
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for file_info in result_files:
+                filepath = file_info['filepath']
+                filename = file_info['filename']
+                if os.path.exists(filepath):
+                    zip_file.write(filepath, filename)
+
+        # Seek to the beginning of the buffer
+        zip_buffer.seek(0)
+
+        # Create a response with the ZIP file
+        response = make_response(zip_buffer.getvalue())
+        response.headers.set('Content-Type', 'application/zip')
+        response.headers.set('Content-Disposition', 'attachment', filename='pdf_images.zip')
+
+        # Add CORS headers
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Expose-Headers', 'Content-Disposition')
+
+        return response
+
+    except Exception as e:
+        app.logger.error(f"Error creating ZIP file: {str(e)}")
+        return jsonify({'error': f'Error creating ZIP file: {str(e)}'}), 500
 
 @app.route('/pdf-to-image', methods=['POST', 'OPTIONS'])
 def pdf_to_image():
@@ -414,6 +721,7 @@ def pdf_to_image():
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type, X-API-Key')
         return response
+
 
     try:
         data = request.json
@@ -460,10 +768,31 @@ def pdf_to_image():
                         }
                         break
 
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Get the original filename
+        file_name = None
+        if file_id in pdf_ops.pdf_storage:
+            file_name = pdf_ops.pdf_storage[file_id]['filename']
+        elif file_id in file_storage:
+            file_name = file_storage[file_id]['filename']
+        else:
+            file_name = "Unknown"
+
+        # Create descriptive message
+        page_count = len(pages) if pages else "all"
+        description = f"Converted {page_count} pages to {format.upper()} images ({dpi} DPI)"
+
         # Log operation
-        api_key = request.headers.get('X-API-Key')
-        file_name = pdf_ops.pdf_storage[file_id]['filename'] if file_id in pdf_ops.pdf_storage else "Unknown"
-        log_operation(api_key, 'pdf-to-image', file_id, file_name)
+        log_operation(
+            api_key,
+            'pdf-to-image',
+            file_id,
+            file_name,
+            description
+        )
+
 
         # Return metadata (excluding internal filepaths)
         response_files = []
@@ -489,6 +818,7 @@ def image_to_pdf():
     if len(request.files) < 1:
         return jsonify({'error': 'No image files provided'}), 400
 
+
     # Get all image files from the request
     image_files = []
     for key in request.files:
@@ -510,9 +840,21 @@ def image_to_pdf():
         # Also store in the old system for compatibility
         file_storage[pdf_info['id']] = pdf_info
 
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create descriptive message
+        filenames = ", ".join([file.filename for file in image_files])
+        description = f"Converted {len(image_files)} images to PDF: {filenames}"
+
         # Log operation
-        api_key = request.headers.get('X-API-Key')
-        log_operation(api_key, 'image-to-pdf', pdf_info['id'], pdf_info['filename'])
+        log_operation(
+            api_key,
+            'image-to-pdf',
+            pdf_info['id'],
+            pdf_info['filename'],
+            description
+        )
 
         # Return metadata (excluding internal filepath)
         response_info = pdf_info.copy()
@@ -523,168 +865,326 @@ def image_to_pdf():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/protect', methods=['POST'])
-def protect_pdf():
+def protect_pdf_route():
     data = request.json
     if not data or 'file_id' not in data or 'user_password' not in data:
         return jsonify({'error': 'Missing required parameters'}), 400
 
     file_id = data['file_id']
-    if file_id not in file_storage:
-        return jsonify({'error': 'File not found'}), 404
-
-    # Get protection parameters
     user_password = data['user_password']
     owner_password = data.get('owner_password', user_password)
     allow_printing = data.get('allow_printing', True)
     allow_copying = data.get('allow_copying', True)
+    preview_only = data.get('preview_only', False)
 
-    # Get original file info
-    original_file = file_storage[file_id]
-    original_filepath = original_file['filepath']
+    try:
+        # Use the PdfOperations class to protect PDF
+        pdf_info = pdf_ops.protect_pdf(
+            file_id,
+            user_password,
+            owner_password,
+            allow_printing,
+            allow_copying
+        )
 
-    # Create a new file
-    new_file_id = str(uuid.uuid4())
-    new_filename = f"protected_{original_file['filename']}"
-    new_filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{new_file_id}.pdf")
+        # Get API key for logging
+        api_key = get_api_key_from_request()
 
-    # Copy the original file (in a real implementation, we would add password protection)
-    shutil.copy(original_filepath, new_filepath)
+        # Create descriptive message
+        permissions = []
+        if allow_printing:
+            permissions.append("printing allowed")
+        else:
+            permissions.append("printing disabled")
 
-    # Store metadata
-    file_info = {
-        "id": new_file_id,
-        "filename": new_filename,
-        "filepath": new_filepath,
-        "pages": original_file.get('pages', 1)
-    }
-    file_storage[new_file_id] = file_info
+        if allow_copying:
+            permissions.append("copying allowed")
+        else:
+            permissions.append("copying disabled")
 
-    # Log operation
-    api_key = request.headers.get('X-API-Key')
-    log_operation(api_key, 'protect', new_file_id, new_filename)
+        description = f"Protected PDF with password ({', '.join(permissions)})"
 
-    # Return metadata (excluding internal filepath)
-    response_info = file_info.copy()
-    response_info.pop('filepath', None)
+        # Log operation (only if not preview)
+        if not preview_only:
+            log_operation(
+                api_key,
+                'protect',
+                pdf_info['id'],
+                pdf_info['filename'],
+                description
+            )
 
-    return jsonify(response_info)
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/compress', methods=['POST'])
-def compress_pdf():
+def compress_pdf_route():
     data = request.json
     if not data or 'file_id' not in data:
         return jsonify({'error': 'Missing required parameters'}), 400
 
     file_id = data['file_id']
-    if file_id not in file_storage:
-        return jsonify({'error': 'File not found'}), 404
 
-    # Get compression parameters
-    compression_level = data.get('compression_level', 'medium')
+    try:
+        # Get compression parameters
+        compression_level = data.get('compression_level', 'medium')
+        preview_only = data.get('preview_only', False)
 
-    # Get original file info
-    original_file = file_storage[file_id]
-    original_filepath = original_file['filepath']
+        # Important: use file_storage if file_id is not in pdf_ops.pdf_storage
+        if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+            # Copy file info to pdf_ops storage
+            pdf_ops.pdf_storage[file_id] = file_storage[file_id]
 
-    # Create a new file
-    new_file_id = str(uuid.uuid4())
-    new_filename = f"compressed_{original_file['filename']}"
-    new_filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{new_file_id}.pdf")
+        # Use the PdfOperations class to compress PDF
+        pdf_info = pdf_ops.compress_pdf(file_id, compression_level)
 
-    # Copy the original file (in a real implementation, we would compress the PDF)
-    shutil.copy(original_filepath, new_filepath)
 
-    # Store metadata
-    file_info = {
-        "id": new_file_id,
-        "filename": new_filename,
-        "filepath": new_filepath,
-        "pages": original_file.get('pages', 1)
-    }
-    file_storage[new_file_id] = file_info
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
 
-    # Log operation
-    api_key = request.headers.get('X-API-Key')
-    log_operation(api_key, 'compress', new_file_id, new_filename)
 
-    # Return metadata (excluding internal filepath)
-    response_info = file_info.copy()
-    response_info.pop('filepath', None)
+        # Get API key for logging
+        api_key = get_api_key_from_request()
 
-    return jsonify(response_info)
+        # Create descriptive message
+        # Include compression ratio if available
+        compression_ratio = None
+        if 'compression_ratio' in pdf_info:
+            compression_ratio = pdf_info['compression_ratio']
+            description = f"Compressed PDF by {round(compression_ratio * 100)}% ({compression_level} level)"
+        else:
+            description = f"Compressed PDF ({compression_level} level)"
+
+        # Log operation (only if not preview)
+        if not preview_only:
+            log_operation(
+                api_key,
+                'compress',
+                pdf_info['id'],
+                pdf_info['filename'],
+                description
+            )
+
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+
+        print(f"Error compressing PDF: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/remove-pages', methods=['POST'])
+def remove_pages_route():
+    data = request.json
+    if not data or 'file_id' not in data or 'pages' not in data:
+        return jsonify({'error': 'Missing required parameters'}), 400
+
+    file_id = data['file_id']
+    pages_to_remove = data['pages']
+    preview_only = data.get('preview_only', False)
+
+    try:
+        # Make sure the file exists in pdf_ops storage
+        if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+            pdf_ops.pdf_storage[file_id] = file_storage[file_id]
+
+        # Create a preview or actually remove the pages
+        if preview_only:
+            pdf_info = pdf_ops.preview_remove_pages(file_id, pages_to_remove)
+        else:
+            pdf_info = pdf_ops.remove_pages(file_id, pages_to_remove)
+
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create descriptive message
+        description = f"Removed {len(pages_to_remove)} pages from PDF"
+
+        # Log operation (only for actual removal, not preview)
+        if not preview_only:
+            log_operation(
+                api_key,
+                'remove-pages',
+                pdf_info['id'],
+                pdf_info['filename'],
+                description
+            )
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/preview-remove-pages', methods=['POST'])
+def preview_remove_pages_route():
+    data = request.json
+    if not data or 'file_id' not in data or 'pages' not in data:
+        return jsonify({'error': 'Missing required parameters'}), 400
+
+    file_id = data['file_id']
+    pages_to_remove = data['pages']
+
+    try:
+        # Make sure the file exists in pdf_ops storage
+        if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+            pdf_ops.pdf_storage[file_id] = file_storage[file_id]
+
+        # Create a preview
+        pdf_info = pdf_ops.preview_remove_pages(file_id, pages_to_remove)
+
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/edit-metadata', methods=['POST'])
-def edit_metadata():
+def edit_metadata_route():
     data = request.json
     if not data or 'file_id' not in data or 'metadata' not in data:
         return jsonify({'error': 'Missing required parameters'}), 400
 
     file_id = data['file_id']
-    if file_id not in file_storage:
-        return jsonify({'error': 'File not found'}), 404
-
-    # Get metadata parameters
     metadata = data['metadata']
+    preview_only = data.get('preview_only', False)
 
-    # Get original file info
-    original_file = file_storage[file_id]
-    original_filepath = original_file['filepath']
+    try:
+        # Make sure the file exists in pdf_ops storage
+        if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+            pdf_ops.pdf_storage[file_id] = file_storage[file_id]
 
-    # Create a new file
-    new_file_id = str(uuid.uuid4())
-    new_filename = f"metadata_{original_file['filename']}"
-    new_filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{new_file_id}.pdf")
+        # Edit metadata
+        pdf_info = pdf_ops.edit_metadata(file_id, metadata, preview_only)
 
-    # Copy the original file (in a real implementation, we would update the metadata)
-    shutil.copy(original_filepath, new_filepath)
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
 
-    # Store metadata
-    file_info = {
-        "id": new_file_id,
-        "filename": new_filename,
-        "filepath": new_filepath,
-        "pages": original_file.get('pages', 1)
-    }
-    file_storage[new_file_id] = file_info
+        # Get API key for logging
+        api_key = get_api_key_from_request()
 
-    # Log operation
-    api_key = request.headers.get('X-API-Key')
-    log_operation(api_key, 'edit-metadata', new_file_id, new_filename)
+        # Create descriptive message - list the fields that were updated
+        fields = []
+        if metadata.get('title'):
+            fields.append('title')
+        if metadata.get('author'):
+            fields.append('author')
+        if metadata.get('subject'):
+            fields.append('subject')
+        if metadata.get('keywords'):
+            fields.append('keywords')
 
-    # Return metadata (excluding internal filepath)
-    response_info = file_info.copy()
-    response_info.pop('filepath', None)
+        description = f"Updated PDF metadata ({', '.join(fields)})"
 
-    return jsonify(response_info)
+        # Log operation (only for actual edit, not preview)
+        if not preview_only:
+            log_operation(
+                api_key,
+                'edit-metadata',
+                pdf_info['id'],
+                pdf_info['filename'],
+                description
+            )
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/metadata/<file_id>', methods=['GET'])
-def get_metadata(file_id):
-    if file_id not in file_storage:
+def get_metadata_route(file_id):
+    if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+        pdf_ops.pdf_storage[file_id] = file_storage[file_id]
+
+    if file_id not in pdf_ops.pdf_storage:
         return jsonify({'error': 'File not found'}), 404
 
-    # Get file info
-    file_info = file_storage[file_id]
+    try:
+        metadata = pdf_ops.get_metadata(file_id)
+        return jsonify({"metadata": metadata})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-    # In a real implementation, we would read the actual metadata
-    # For now, return placeholder metadata
-    metadata = {
-        "title": "Document Title",
-        "author": "Document Author",
-        "subject": "Document Subject",
-        "keywords": "pdf, document, example"
-    }
-
-    return jsonify({"metadata": metadata})
-
-@app.route('/api-docs', methods=['GET'])
-def api_docs():
-    # Read the Swagger JSON file if it exists
+@app.route('/api-docs-spec', methods=['GET'])
+def api_docs_spec():
     try:
         with open('swagger.json', 'r') as f:
             swagger_data = json.load(f)
         return jsonify(swagger_data)
-    except:
-        return jsonify({"error": "Swagger documentation not available"}), 404
+    except Exception as e:
+        app.logger.error(f"Error loading Swagger spec: {str(e)}")
+        return jsonify({"error": "Failed to load API documentation"}), 500
+
+def get_zip_path(self, zip_id):
+    """Get zip file path for download"""
+    # First, check if we have a direct match in our storage
+    for file_id, file_info in self.pdf_storage.items():
+        if file_id == zip_id and 'filepath' in file_info:
+            return file_info['filepath']
+
+    # Then check for zip references
+    for file_id, file_info in self.pdf_storage.items():
+        if 'zip_id' in file_info and file_info['zip_id'] == zip_id:
+            if 'zip_path' in file_info:
+                return file_info['zip_path']
+
+    # If not found, search for any ZIP file with matching id pattern
+    zip_pattern = f"*{zip_id}*.zip"
+    for filename in os.listdir(self.upload_folder):
+        if fnmatch.fnmatch(filename, zip_pattern):
+            return os.path.join(self.upload_folder, filename)
+
+    return None
+
+@app.route('/test-logging-flow', methods=['GET'])
+def test_logging_flow():
+    """Test kompletného logovacieho flow"""
+    try:
+        # 1. Získaj admin API kľúč
+        admin_key = get_admin_api_key()
+        if not admin_key:
+            return jsonify({'error': 'Failed to get admin API key'}), 500
+
+        # 2. Vytvor testovací log s admin API kľúčom
+        log_result = logger_log_operation(
+            api_key=admin_key,
+            action='test-flow',
+            description='Testing complete logging flow',
+            file_id='test-file-id',
+            file_name='test-file.pdf',
+            operation_type='test'
+        )
+
+        # 3. Vráť výsledok testu
+        return jsonify({
+            'success': log_result,
+            'api_key_used': admin_key[:10] + '...',
+            'message': 'Logging flow test completed'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 # Cleanup task for temporary files (run in production)
 def cleanup_old_files():
