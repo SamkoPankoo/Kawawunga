@@ -26,6 +26,9 @@
       <v-btn text :to="{ name: 'editor' }">
         {{ $t('common.editor') }}
       </v-btn>
+      <v-btn text :to="{ name: 'api-docs' }">
+        {{ $t('common.apiDocs') }}
+      </v-btn>
       <v-btn text @click="logout">
         {{ $t('common.logout') }}
       </v-btn>
@@ -37,6 +40,7 @@
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import LanguageSwitcher from './LanguageSwitcher.vue'
+
 
 const router = useRouter()
 const authStore = useAuthStore()

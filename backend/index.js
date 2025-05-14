@@ -9,6 +9,13 @@ const userRoutes = require('./routes/users');
 const historyRoutes = require('./routes/history');
 const apiKeyMiddleware = require('./middleware/apiKey');
 const { initializeAdmin } = require('./init-data');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger.json');
+try {
+    console.log('Loading swagger document:', swaggerDocument);
+} catch (error) {
+    console.error('Error loading swagger document:', error);
+}
 
 dotenv.config();
 
@@ -29,6 +36,9 @@ app.use('/api/history', apiKeyMiddleware, historyRoutes);
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'PDF Editor API is running' });
 });
+
+// Swagger API dokumentácia
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

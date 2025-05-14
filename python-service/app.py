@@ -6,6 +6,7 @@ import shutil
 import zipfile
 import io
 import tempfile
+
 import fnmatch
 import time
 from werkzeug.utils import secure_filename
@@ -71,6 +72,7 @@ def get_admin_api_key():
 # Helper function to get API key from request
 def get_api_key_from_request():
     api_key = None
+
 
     # Try to get API key from X-API-Key header
     if 'X-API-Key' in request.headers:
@@ -475,11 +477,13 @@ def split_pdf():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/rotate', methods=['POST'])
 def rotate_pdf():
     data = request.json
     if not data or 'file_id' not in data:
         return jsonify({'error': 'Missing required parameters'}), 400
+
 
     file_id = data['file_id']
 
@@ -629,6 +633,7 @@ def add_watermark():
         return jsonify(response_info)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/pdf-to-image-zip', methods=['POST'])
 def pdf_to_image_zip():
