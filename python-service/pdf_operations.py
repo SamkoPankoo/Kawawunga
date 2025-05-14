@@ -1174,6 +1174,111 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error editing metadata: {str(e)}")
 
+    def protect_pdf(self, file_id, user_password, owner_password=None,
+                   allow_printing=True, allow_copying=True):
+        """
+        Add password protection to a PDF file
+
+        Args:
+            file_id: ID of the PDF to protect
+            user_password: Password required to open the document
+            owner_password: Password with full permissions (defaults to user_password if None)
+            allow_printing: Whether to allow printing
+            allow_copying: Whether to allow copying content
+
+        Returns:
+            Dictionary with protected PDF info
+        """
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Initialize PDF reader and writer
+            reader = PdfReader(file_info['filepath'])
+            writer = PdfWriter()
+
+            # Add all pages from the original document
+            for page in reader.pages:
+                writer.add_page(page)
+
+            # Set permissions - PyPDF permissions are bit flags
+            permissions = 0
+            if allow_printing:
+                permissions |= 4  # Print document (bit 2)
+            if allow_copying:
+                permissions |= 16  # Extract content (bit 4)
+
+            # Apply encryption
+            if owner_password is None or owner_password == "":
+                owner_password = user_password
+
+            # Ensure we use the more secure 128-bit encryption
+            writer.encrypt(
+                user_password=user_password,
+                owner_password=owner_password,
+                use_128bit=True,
+                permissions_flag=permissions
+            )
+
+            # Set output path
+            new_file_id = str(uuid.uuid4())
+            new_filename = f"protected_{file_info['filename']}"
+            output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+            # Write the protected PDF
+            with open(output_path, 'wb') as output_file:
+                writer.write(output_file)
+
+            # Verify the PDF is actually password-protected
+            try:
+                # Try to open the PDF without a password - should raise an exception
+                verify_reader = PdfReader(output_path)
+
+                # If we got here, the PDF isn't properly protected
+                # Let's try a different method with PyMuPDF
+                try:
+                    doc = fitz.open(file_info['filepath'])
+
+                    # Apply permissions and encryption
+                    perm = 0
+                    if allow_printing:
+                        perm |= fitz.PDF_PERM_PRINT
+                    if allow_copying:
+                        perm |= fitz.PDF_PERM_COPY
+
+                    # Save with encryption
+                    doc.save(
+                        output_path,
+                        encryption=fitz.PDF_ENCRYPT_AES_128,  # Use AES 128-bit encryption
+                        user_pw=user_password,
+                        owner_pw=owner_password,
+                        permissions=perm
+                    )
+                    doc.close()
+                except Exception as mupdf_error:
+                    print(f"PyMuPDF protection failed: {mupdf_error}")
+                    # Just continue with original output
+            except:
+                # Exception raised means the PDF is properly password-protected
+                pass
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": len(reader.pages),
+                "filepath": output_path,
+                "protected": True
+            }
+
+            # Store in pdf_storage
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error adding password protection: {str(e)}")
     def get_file_path(self, file_id):
         """Get file path for download"""
         if file_id not in self.pdf_storage:

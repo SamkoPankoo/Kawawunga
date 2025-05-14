@@ -625,24 +625,63 @@ def add_watermark():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/download-zip/<zip_id>', methods=['GET'])
-def download_zip(zip_id):
-    zip_path = pdf_ops.get_zip_path(zip_id)
+@app.route('/protect', methods=['POST'])
+def protect_pdf_route():
+    data = request.json
+    if not data or 'file_id' not in data or 'user_password' not in data:
+        return jsonify({'error': 'Missing required parameters'}), 400
 
-    if not zip_path:
-        return jsonify({"error": "Zip file not found"}), 404
-
-    filename = os.path.basename(zip_path)
+    file_id = data['file_id']
+    user_password = data['user_password']
+    owner_password = data.get('owner_password', user_password)
+    allow_printing = data.get('allow_printing', True)
+    allow_copying = data.get('allow_copying', True)
+    preview_only = data.get('preview_only', False)
 
     try:
-        return send_file(
-            zip_path,
-            mimetype='application/zip',
-            as_attachment=True,
-            download_name=filename
+        # Use the PdfOperations class to protect PDF
+        pdf_info = pdf_ops.protect_pdf(
+            file_id,
+            user_password,
+            owner_password,
+            allow_printing,
+            allow_copying
         )
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create descriptive message
+        permissions = []
+        if allow_printing:
+            permissions.append("printing allowed")
+        else:
+            permissions.append("printing disabled")
+
+        if allow_copying:
+            permissions.append("copying allowed")
+        else:
+            permissions.append("copying disabled")
+
+        description = f"Protected PDF with password ({', '.join(permissions)})"
+
+        # Log operation (only if not preview)
+        if not preview_only:
+            log_operation(
+                api_key,
+                'protect',
+                pdf_info['id'],
+                pdf_info['filename'],
+                description
+            )
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/compress', methods=['POST'])
 def compress_pdf_route():
