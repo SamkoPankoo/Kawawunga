@@ -771,15 +771,55 @@ def pdf_to_image():
         app.logger.error(f"Error in pdf-to-image: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/image-to-pdf', methods=['POST'])
+def image_to_pdf():
+    if len(request.files) < 1:
+        return jsonify({'error': 'No image files provided'}), 400
+
+    # Get all image files from the request
+    image_files = []
+    for key in request.files:
+        file = request.files[key]
+        if file.filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp')):
+            image_files.append(file)
+
+    if len(image_files) < 1:
+        return jsonify({'error': 'No valid image files provided'}), 400
+
+    # Get parameters
+    page_size = request.form.get('page_size', 'A4')
+    orientation = request.form.get('orientation', 'portrait')
+
     try:
-        return send_file(
-            filepath,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=filename
+        # Use the PdfOperations class to convert images to PDF
+        pdf_info = pdf_ops.convert_images_to_pdf(image_files, page_size, orientation)
+
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create descriptive message
+        filenames = ", ".join([file.filename for file in image_files])
+        description = f"Converted {len(image_files)} images to PDF: {filenames}"
+
+        # Log operation
+        log_operation(
+            api_key,
+            'image-to-pdf',
+            pdf_info['id'],
+            pdf_info['filename'],
+            description
         )
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/protect', methods=['POST'])
 def protect_pdf_route():

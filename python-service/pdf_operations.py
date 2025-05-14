@@ -1279,6 +1279,119 @@ class PdfOperations:
 
         except Exception as e:
             raise Exception(f"Error adding password protection: {str(e)}")
+
+    def convert_images_to_pdf(self, image_files, page_size='A4', orientation='portrait'):
+        """
+        Convert images to a single PDF file
+
+        Args:
+            image_files: List of image file objects
+            page_size: Page size (A4, Letter, etc.)
+            orientation: Page orientation (portrait, landscape)
+
+        Returns:
+            PDF file info dictionary
+        """
+        try:
+            # Define page dimensions based on size and orientation
+            page_sizes = {
+                'A4': (210, 297),  # Width, height in mm
+                'A5': (148, 210),
+                'Letter': (215.9, 279.4),
+                'Legal': (215.9, 355.6)
+            }
+
+            # Get the selected page size
+            width_mm, height_mm = page_sizes.get(page_size, page_sizes['A4'])
+
+            # Swap dimensions if landscape
+            if orientation.lower() == 'landscape':
+                width_mm, height_mm = height_mm, width_mm
+
+            # Convert mm to points (1 inch = 25.4 mm, 1 inch = 72 points)
+            width_pt = width_mm * 72 / 25.4
+            height_pt = height_mm * 72 / 25.4
+
+            # Create a new PDF file with unique ID
+            file_id = str(uuid.uuid4())
+            filename = "converted_images.pdf"
+            output_path = os.path.join(self.upload_folder, f"{file_id}_{filename}")
+
+            # Save image files to temporary files
+            temp_files = []
+            for img_file in image_files:
+                temp_path = os.path.join(tempfile.gettempdir(), secure_filename(img_file.filename))
+                img_file.save(temp_path)
+                temp_files.append(temp_path)
+
+            # Initialize PDF writer
+            writer = PdfWriter()
+
+            # Process each image
+            for img_path in temp_files:
+                # Open image with PIL
+                img = Image.open(img_path)
+
+                # Convert to RGB if RGBA (for transparency handling)
+                if img.mode == 'RGBA':
+                    img = img.convert('RGB')
+
+                # Resize image to fit the page with margins
+                margin_pt = 10  # 10pt margin
+                content_width = width_pt - 2 * margin_pt
+                content_height = height_pt - 2 * margin_pt
+
+                # Calculate scaling ratio to fit the image within the content area
+                img_ratio = img.width / img.height
+                content_ratio = content_width / content_height
+
+                if img_ratio > content_ratio:
+                    # Image is wider than the content area ratio
+                    new_width = content_width
+                    new_height = content_width / img_ratio
+                else:
+                    # Image is taller than the content area ratio
+                    new_height = content_height
+                    new_width = content_height * img_ratio
+
+                img = img.resize((int(new_width), int(new_height)), Image.LANCZOS)
+
+                # Create a PDF from the image
+                pdf_bytes = BytesIO()
+                img.save(pdf_bytes, format='PDF')
+                pdf_bytes.seek(0)
+
+                # Add to the writer
+                reader = PdfReader(pdf_bytes)
+                writer.add_page(reader.pages[0])
+
+            # Write the combined PDF
+            with open(output_path, 'wb') as output_file:
+                writer.write(output_file)
+
+            # Cleanup temporary files
+            for temp_path in temp_files:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+            # Create file info
+            pdf_info = {
+                "id": file_id,
+                "filename": filename,
+                "pages": len(temp_files),
+                "filepath": output_path
+            }
+
+            self.pdf_storage[file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            # Clean up any temporary files
+            for temp_path in temp_files if 'temp_files' in locals() else []:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            raise Exception(f"Error converting images to PDF: {str(e)}")
+
     def convert_pdf_to_images(self, file_id, format='png', dpi=300, pages=None, create_zip=True):
         """
         Convert PDF pages to images
