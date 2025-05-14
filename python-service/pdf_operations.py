@@ -183,11 +183,6 @@ class PdfOperations:
                         self.pdf_storage[split_id] = pdf_info
                         result_files.append(pdf_info)
 
-            elif split_method == 'byRanges' and ranges:
-                # Split by specified page ranges
-                for i, range_info in enumerate(ranges):
-                    start = int(range_info['start']) - 1  # Convert to 0-based index
-                    end = int(range_info['end'])
                 elif split_method == 'byRanges' and ranges:
                     # Split by specified page ranges
                     for i, range_info in enumerate(ranges):
