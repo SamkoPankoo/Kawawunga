@@ -5,8 +5,23 @@ import zipfile
 import tempfile
 from werkzeug.utils import secure_filename
 from io import BytesIO
+import fitz  # PyMuPDF for additional PDF operations
+from PIL import Image  # For image to PDF conversion
 
 class PdfOperations:
+    """
+    Comprehensive class for PDF operations including:
+    - Uploading and saving PDFs
+    - Merging multiple PDFs
+    - Splitting PDFs by various methods
+    - Rotating PDF pages
+    - Adding watermarks to PDFs
+    - Converting images to PDF
+    - Converting PDF to images
+    - Compressing PDFs
+    - Editing PDF metadata
+    """
+
     def __init__(self, upload_folder):
         """Initialize PDF operations with upload folder for temporary storage"""
         self.upload_folder = upload_folder
@@ -21,14 +36,34 @@ class PdfOperations:
 
         file.save(filepath)
 
-        # Read PDF info
-        reader = PdfReader(filepath)
-        pdf_info = {
-            "id": file_id,
-            "filename": filename,
-            "pages": len(reader.pages),
-            "filepath": filepath
-        }
+        # Get PDF info using PyPDF
+        try:
+            reader = PdfReader(filepath)
+            pdf_info = {
+                "id": file_id,
+                "filename": filename,
+                "pages": len(reader.pages),
+                "filepath": filepath
+            }
+        except Exception as e:
+            # If PyPDF fails, try with PyMuPDF
+            try:
+                doc = fitz.open(filepath)
+                pdf_info = {
+                    "id": file_id,
+                    "filename": filename,
+                    "pages": len(doc),
+                    "filepath": filepath
+                }
+                doc.close()
+            except Exception as e2:
+                # If both fail, just provide basic info
+                pdf_info = {
+                    "id": file_id,
+                    "filename": filename,
+                    "pages": 0,  # Unknown number of pages
+                    "filepath": filepath
+                }
 
         self.pdf_storage[file_id] = pdf_info
         return pdf_info
@@ -43,25 +78,53 @@ class PdfOperations:
                 file.save(temp_path)
                 temp_files.append(temp_path)
 
-            # Merge PDFs
-            writer = PdfWriter()
+            # Try merging with PyPDF first
+            try:
+                # Merge PDFs using PyPDF
+                writer = PdfWriter()
 
-            for temp_path in temp_files:
-                reader = PdfReader(temp_path)
-                for page in reader.pages:
-                    writer.add_page(page)
+                for temp_path in temp_files:
+                    reader = PdfReader(temp_path)
+                    for page in reader.pages:
+                        writer.add_page(page)
 
-            # Save merged PDF
-            file_id = str(uuid.uuid4())
-            if output_filename:
-                filename = secure_filename(output_filename)
-            else:
-                filename = "merged.pdf"
+                # Save merged PDF
+                file_id = str(uuid.uuid4())
+                if output_filename:
+                    filename = secure_filename(output_filename)
+                else:
+                    filename = "merged.pdf"
 
-            output_path = os.path.join(self.upload_folder, f"{file_id}_{filename}")
+                output_path = os.path.join(self.upload_folder, f"{file_id}_{filename}")
 
-            with open(output_path, 'wb') as output_file:
-                writer.write(output_file)
+                with open(output_path, 'wb') as output_file:
+                    writer.write(output_file)
+
+                # Get page count
+                total_pages = len(writer.pages)
+
+            except Exception as e:
+                # If PyPDF fails, try with PyMuPDF
+                doc = fitz.open()
+
+                for temp_path in temp_files:
+                    src_doc = fitz.open(temp_path)
+                    doc.insert_pdf(src_doc)
+                    src_doc.close()
+
+                # Save merged PDF
+                file_id = str(uuid.uuid4())
+                if output_filename:
+                    filename = secure_filename(output_filename)
+                else:
+                    filename = "merged.pdf"
+
+                output_path = os.path.join(self.upload_folder, f"{file_id}_{filename}")
+                doc.save(output_path)
+
+                # Get page count
+                total_pages = len(doc)
+                doc.close()
 
             # Cleanup temporary files
             for temp_path in temp_files:
@@ -72,7 +135,7 @@ class PdfOperations:
             pdf_info = {
                 "id": file_id,
                 "filename": filename,
-                "pages": len(writer.pages),
+                "pages": total_pages,
                 "filepath": output_path
             }
 
@@ -90,48 +153,87 @@ class PdfOperations:
         file_info = self.pdf_storage[file_id]
 
         try:
-            reader = PdfReader(file_info['filepath'])
-            result_files = []
+            # Try with PyPDF first
+            try:
+                reader = PdfReader(file_info['filepath'])
+                total_pages = len(reader.pages)
 
-            if split_method == 'byPage':
-                # Split each page into a separate file
-                for i in range(len(reader.pages)):
-                    writer = PdfWriter()
-                    writer.add_page(reader.pages[i])
+                result_files = []
 
-                    split_id = str(uuid.uuid4())
-                    filename = f"page_{i+1}.pdf"
-                    output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
+                if split_method == 'byPage':
+                    # Split each page into a separate file
+                    for i in range(total_pages):
+                        writer = PdfWriter()
+                        writer.add_page(reader.pages[i])
 
-                    with open(output_path, 'wb') as output_file:
-                        writer.write(output_file)
+                        split_id = str(uuid.uuid4())
+                        filename = f"page_{i+1}.pdf"
+                        output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
 
-                    pdf_info = {
-                        "id": split_id,
-                        "filename": filename,
-                        "pages": 1,
-                        "filepath": output_path
-                    }
+                        with open(output_path, 'wb') as output_file:
+                            writer.write(output_file)
 
-                    self.pdf_storage[split_id] = pdf_info
-                    result_files.append(pdf_info)
+                        pdf_info = {
+                            "id": split_id,
+                            "filename": filename,
+                            "pages": 1,
+                            "filepath": output_path
+                        }
+
+                        self.pdf_storage[split_id] = pdf_info
+                        result_files.append(pdf_info)
 
             elif split_method == 'byRanges' and ranges:
                 # Split by specified page ranges
                 for i, range_info in enumerate(ranges):
                     start = int(range_info['start']) - 1  # Convert to 0-based index
                     end = int(range_info['end'])
+                elif split_method == 'byRanges' and ranges:
+                    # Split by specified page ranges
+                    for i, range_info in enumerate(ranges):
+                        start = int(range_info.get('start', 1)) - 1  # Convert to 0-based index
+                        end = int(range_info.get('end', 1))
 
-                    if start < 0 or end > len(reader.pages) or start >= end:
-                        continue
+                        if start < 0 or end > total_pages or start >= end:
+                            continue
 
+                        writer = PdfWriter()
+
+                        for page_num in range(start, end):
+                            writer.add_page(reader.pages[page_num])
+
+                        split_id = str(uuid.uuid4())
+                        filename = f"pages_{start+1}-{end}.pdf"
+                        output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
+
+                        with open(output_path, 'wb') as output_file:
+                            writer.write(output_file)
+
+                        pdf_info = {
+                            "id": split_id,
+                            "filename": filename,
+                            "pages": end - start,
+                            "filepath": output_path
+                        }
+
+                        self.pdf_storage[split_id] = pdf_info
+                        result_files.append(pdf_info)
+
+                elif split_method == 'extractPages' and pages:
+                    # Extract specific pages
                     writer = PdfWriter()
 
-                    for page_num in range(start, end):
-                        writer.add_page(reader.pages[page_num])
+                    for page_num in pages:
+                        if 1 <= page_num <= total_pages:
+                            writer.add_page(reader.pages[page_num - 1])
 
                     split_id = str(uuid.uuid4())
-                    filename = f"pages_{start+1}-{end}.pdf"
+                    if len(pages) <= 5:  # For a reasonable filename length
+                        page_list = '-'.join(str(p) for p in pages)
+                    else:
+                        page_list = f"{pages[0]}-{pages[-1]}_selection"
+
+                    filename = f"extracted_pages_{page_list}.pdf"
                     output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
 
                     with open(output_path, 'wb') as output_file:
@@ -140,38 +242,105 @@ class PdfOperations:
                     pdf_info = {
                         "id": split_id,
                         "filename": filename,
-                        "pages": end - start,
+                        "pages": len(writer.pages),
                         "filepath": output_path
                     }
 
                     self.pdf_storage[split_id] = pdf_info
                     result_files.append(pdf_info)
 
-            elif split_method == 'extractPages' and pages:
-                # Extract specific pages
-                writer = PdfWriter()
+            except Exception as e:
+                # If PyPDF fails, try with PyMuPDF
+                doc = fitz.open(file_info['filepath'])
+                total_pages = len(doc)
 
-                for page_num in pages:
-                    if 1 <= page_num <= len(reader.pages):
-                        writer.add_page(reader.pages[page_num - 1])
+                result_files = []
 
-                split_id = str(uuid.uuid4())
-                page_list = '-'.join(str(p) for p in pages)
-                filename = f"extracted_pages_{page_list}.pdf"
-                output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
+                if split_method == 'byPage':
+                    # Split each page into a separate file
+                    for i in range(total_pages):
+                        output_doc = fitz.open()
+                        output_doc.insert_pdf(doc, from_page=i, to_page=i)
 
-                with open(output_path, 'wb') as output_file:
-                    writer.write(output_file)
+                        split_id = str(uuid.uuid4())
+                        filename = f"page_{i+1}.pdf"
+                        output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
 
-                pdf_info = {
-                    "id": split_id,
-                    "filename": filename,
-                    "pages": len(writer.pages),
-                    "filepath": output_path
-                }
+                        output_doc.save(output_path)
+                        output_doc.close()
 
-                self.pdf_storage[split_id] = pdf_info
-                result_files.append(pdf_info)
+                        pdf_info = {
+                            "id": split_id,
+                            "filename": filename,
+                            "pages": 1,
+                            "filepath": output_path
+                        }
+
+                        self.pdf_storage[split_id] = pdf_info
+                        result_files.append(pdf_info)
+
+                elif split_method == 'byRanges' and ranges:
+                    # Split by specified page ranges
+                    for i, range_info in enumerate(ranges):
+                        start = int(range_info.get('start', 1)) - 1  # Convert to 0-based index
+                        end = int(range_info.get('end', 1)) - 1      # Convert to 0-based index
+
+                        if start < 0 or end >= total_pages or start > end:
+                            continue
+
+                        output_doc = fitz.open()
+                        output_doc.insert_pdf(doc, from_page=start, to_page=end)
+
+                        split_id = str(uuid.uuid4())
+                        filename = f"pages_{start+1}-{end+1}.pdf"
+                        output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
+
+                        output_doc.save(output_path)
+                        output_doc.close()
+
+                        pdf_info = {
+                            "id": split_id,
+                            "filename": filename,
+                            "pages": end - start + 1,
+                            "filepath": output_path
+                        }
+
+                        self.pdf_storage[split_id] = pdf_info
+                        result_files.append(pdf_info)
+
+                elif split_method == 'extractPages' and pages:
+                    # Extract specific pages
+                    output_doc = fitz.open()
+
+                    # Convert to 0-based indices for PyMuPDF
+                    pymupdf_pages = [p-1 for p in pages if 1 <= p <= total_pages]
+
+                    for page_idx in pymupdf_pages:
+                        output_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+
+                    split_id = str(uuid.uuid4())
+                    if len(pages) <= 5:  # For a reasonable filename length
+                        page_list = '-'.join(str(p) for p in pages)
+                    else:
+                        page_list = f"{pages[0]}-{pages[-1]}_selection"
+
+                    filename = f"extracted_pages_{page_list}.pdf"
+                    output_path = os.path.join(self.upload_folder, f"{split_id}_{filename}")
+
+                    output_doc.save(output_path)
+                    output_doc.close()
+
+                    pdf_info = {
+                        "id": split_id,
+                        "filename": filename,
+                        "pages": len(pymupdf_pages),
+                        "filepath": output_path
+                    }
+
+                    self.pdf_storage[split_id] = pdf_info
+                    result_files.append(pdf_info)
+
+                doc.close()
 
             # Create zip file if needed and there are multiple files
             if create_zip and len(result_files) > 1:
