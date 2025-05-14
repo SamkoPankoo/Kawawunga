@@ -956,6 +956,224 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error compressing PDF: {str(e)}")
 
+    def edit_metadata(self, file_id, metadata, preview_only=False):
+        """
+        Edit metadata of a PDF file
+
+        Args:
+            file_id: ID of the PDF to edit
+            metadata: Dictionary with metadata fields (title, author, subject, keywords)
+            preview_only: Whether this is just a preview
+
+        Returns:
+            Dictionary with updated PDF info
+        """
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Initialize PDF reader and writer
+            reader = PdfReader(file_info['filepath'])
+            writer = PdfWriter()
+
+            # Add all pages from the original document
+            for page in reader.pages:
+                writer.add_page(page)
+
+            # Prepare metadata
+            meta = {}
+            if metadata.get("title"):
+                meta["/Title"] = metadata["title"]
+            if metadata.get("author"):
+                meta["/Author"] = metadata["author"]
+            if metadata.get("subject"):
+                meta["/Subject"] = metadata["subject"]
+            if metadata.get("keywords"):
+                meta["/Keywords"] = metadata["keywords"]
+
+            # Apply metadata
+            writer.add_metadata(meta)
+
+            # Set output path
+            if preview_only:
+                new_file_id = str(uuid.uuid4())
+                new_filename = f"preview_metadata_{file_info['filename']}"
+                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+            else:
+                new_file_id = str(uuid.uuid4())
+                new_filename = f"metadata_{file_info['filename']}"
+                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+            # Write the PDF with updated metadata
+            with open(output_path, 'wb') as output_file:
+                writer.write(output_file)
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": len(reader.pages),
+                "filepath": output_path,
+                "preview": preview_only,
+                "metadata": metadata
+            }
+
+            # Store in pdf_storage
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error editing metadata: {str(e)}")
+
+    def get_metadata(self, file_id):
+        """Get metadata from a PDF file"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Try with PyPDF first
+            try:
+                reader = PdfReader(file_info['filepath'])
+                if reader.metadata:
+                    metadata = reader.metadata
+
+                    # Extract metadata fields
+                    result = {}
+                    if metadata.title:
+                        result["title"] = metadata.title
+                    if metadata.author:
+                        result["author"] = metadata.author
+                    if metadata.subject:
+                        result["subject"] = metadata.subject
+                    if metadata.keywords:
+                        result["keywords"] = metadata.keywords
+
+                    return result
+                else:
+                    return {}
+
+            except Exception as e:
+                # If PyPDF fails, try with PyMuPDF
+                doc = fitz.open(file_info['filepath'])
+                metadata = doc.metadata
+
+                # Extract metadata fields
+                result = {}
+                if "title" in metadata and metadata["title"]:
+                    result["title"] = metadata["title"]
+                if "author" in metadata and metadata["author"]:
+                    result["author"] = metadata["author"]
+                if "subject" in metadata and metadata["subject"]:
+                    result["subject"] = metadata["subject"]
+                if "keywords" in metadata and metadata["keywords"]:
+                    result["keywords"] = metadata["keywords"]
+
+                doc.close()
+                return result
+
+        except Exception as e:
+            # Return empty metadata if extraction fails
+            print(f"Error extracting metadata: {str(e)}")
+            return {}
+
+    def edit_metadata(self, file_id, metadata, preview_only=False):
+        """Edit metadata of a PDF file"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Try with PyPDF first
+            try:
+                reader = PdfReader(file_info['filepath'])
+                writer = PdfWriter()
+
+                # Add all pages from the original document
+                for page in reader.pages:
+                    writer.add_page(page)
+
+                # Prepare metadata
+                meta = {}
+                if metadata.get("title"):
+                    meta["/Title"] = metadata["title"]
+                if metadata.get("author"):
+                    meta["/Author"] = metadata["author"]
+                if metadata.get("subject"):
+                    meta["/Subject"] = metadata["subject"]
+                if metadata.get("keywords"):
+                    meta["/Keywords"] = metadata["keywords"]
+
+                # Apply metadata
+                writer.add_metadata(meta)
+
+                # Set output path
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_metadata_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"metadata_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                # Write the PDF with updated metadata
+                with open(output_path, 'wb') as output_file:
+                    writer.write(output_file)
+
+            except Exception as e:
+                # If PyPDF fails, try with PyMuPDF
+                doc = fitz.open(file_info['filepath'])
+
+                # Add metadata
+                meta = {}
+                if metadata.get("title"):
+                    meta["title"] = metadata["title"]
+                if metadata.get("author"):
+                    meta["author"] = metadata["author"]
+                if metadata.get("subject"):
+                    meta["subject"] = metadata["subject"]
+                if metadata.get("keywords"):
+                    meta["keywords"] = metadata["keywords"]
+
+                # Update the document's metadata
+                doc.set_metadata(meta)
+
+                # Set output path
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_metadata_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"metadata_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                # Save the PDF with updated metadata
+                doc.save(output_path)
+                doc.close()
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": file_info['pages'],
+                "filepath": output_path,
+                "preview": preview_only,
+                "metadata": metadata
+            }
+
+            # Store in pdf_storage
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error editing metadata: {str(e)}")
+
     def get_file_path(self, file_id):
         """Get file path for download"""
         if file_id not in self.pdf_storage:

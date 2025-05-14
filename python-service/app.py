@@ -777,12 +777,79 @@ def preview_remove_pages_route():
 
     if not file_id:
         return jsonify({"error": "File ID is required"}), 400
+@app.route('/edit-metadata', methods=['POST'])
+def edit_metadata_route():
+    data = request.json
+    if not data or 'file_id' not in data or 'metadata' not in data:
+        return jsonify({'error': 'Missing required parameters'}), 400
 
     if not pages:
         return jsonify({"error": "Page numbers are required"}), 400
+    file_id = data['file_id']
+    metadata = data['metadata']
+    preview_only = data.get('preview_only', False)
 
     # Implement page removal in pdf_operations.py first
     return jsonify({"error": "Not implemented yet"}), 501
+    try:
+        # Make sure the file exists in pdf_ops storage
+        if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+            pdf_ops.pdf_storage[file_id] = file_storage[file_id]
+
+        # Edit metadata
+        pdf_info = pdf_ops.edit_metadata(file_id, metadata, preview_only)
+
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create descriptive message - list the fields that were updated
+        fields = []
+        if metadata.get('title'):
+            fields.append('title')
+        if metadata.get('author'):
+            fields.append('author')
+        if metadata.get('subject'):
+            fields.append('subject')
+        if metadata.get('keywords'):
+            fields.append('keywords')
+
+        description = f"Updated PDF metadata ({', '.join(fields)})"
+
+        # Log operation (only for actual edit, not preview)
+        if not preview_only:
+            log_operation(
+                api_key,
+                'edit-metadata',
+                pdf_info['id'],
+                pdf_info['filename'],
+                description
+            )
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/metadata/<file_id>', methods=['GET'])
+def get_metadata_route(file_id):
+    if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+        pdf_ops.pdf_storage[file_id] = file_storage[file_id]
+
+    if file_id not in pdf_ops.pdf_storage:
+        return jsonify({'error': 'File not found'}), 404
+
+    try:
+        metadata = pdf_ops.get_metadata(file_id)
+        return jsonify({"metadata": metadata})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
