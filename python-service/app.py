@@ -73,8 +73,6 @@ def get_admin_api_key():
 def get_api_key_from_request():
     api_key = None
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     # Try to get API key from X-API-Key header
     if 'X-API-Key' in request.headers:
         api_key = request.headers.get('X-API-Key')
@@ -513,10 +511,80 @@ def rotate_page():
     return jsonify({"error": "Not implemented yet"}), 501
 
 @app.route('/remove-pages', methods=['POST'])
-def remove_pages():
+def remove_pages_route():
     data = request.json
-    file_id = data.get('file_id')
-    pages = data.get('pages', [])
+    if not data or 'file_id' not in data or 'pages' not in data:
+        return jsonify({'error': 'Missing required parameters'}), 400
+
+    file_id = data['file_id']
+    pages_to_remove = data['pages']
+    preview_only = data.get('preview_only', False)
+
+    try:
+        # Make sure the file exists in pdf_ops storage
+        if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+            pdf_ops.pdf_storage[file_id] = file_storage[file_id]
+
+        # Create a preview or actually remove the pages
+        if preview_only:
+            pdf_info = pdf_ops.preview_remove_pages(file_id, pages_to_remove)
+        else:
+            pdf_info = pdf_ops.remove_pages(file_id, pages_to_remove)
+
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create descriptive message
+        description = f"Removed {len(pages_to_remove)} pages from PDF"
+
+        # Log operation (only for actual removal, not preview)
+        if not preview_only:
+            log_operation(
+                api_key,
+                'remove-pages',
+                pdf_info['id'],
+                pdf_info['filename'],
+                description
+            )
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/preview-remove-pages', methods=['POST'])
+def preview_remove_pages_route():
+    data = request.json
+    if not data or 'file_id' not in data or 'pages' not in data:
+        return jsonify({'error': 'Missing required parameters'}), 400
+
+    file_id = data['file_id']
+    pages_to_remove = data['pages']
+
+    try:
+        # Make sure the file exists in pdf_ops storage
+        if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+            pdf_ops.pdf_storage[file_id] = file_storage[file_id]
+
+        # Create a preview
+        pdf_info = pdf_ops.preview_remove_pages(file_id, pages_to_remove)
+
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
     if not file_id:
         return jsonify({"error": "File ID is required"}), 400

@@ -145,6 +145,143 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error merging PDFs: {str(e)}")
 
+    def remove_pages(self, file_id, pages_to_remove):
+        """Remove specific pages from a PDF file"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Try with PyPDF first
+            try:
+                reader = PdfReader(file_info['filepath'])
+                writer = PdfWriter()
+                total_pages = len(reader.pages)
+
+                # Convert to integers and ensure within range
+                pages_to_remove = [int(p) for p in pages_to_remove if 1 <= int(p) <= total_pages]
+
+                # Check that we're not removing all pages
+                if len(pages_to_remove) >= total_pages:
+                    raise Exception("Cannot remove all pages from the PDF")
+
+                # Add all pages except those to be removed
+                for i in range(total_pages):
+                    if i + 1 not in pages_to_remove:  # Use 1-indexed page numbers
+                        writer.add_page(reader.pages[i])
+
+                new_file_id = str(uuid.uuid4())
+                new_filename = f"pages_removed_{file_info['filename']}"
+                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                with open(output_path, 'wb') as output_file:
+                    writer.write(output_file)
+
+            except Exception as e:
+                # If PyPDF fails, try with PyMuPDF
+                doc = fitz.open(file_info['filepath'])
+                total_pages = len(doc)
+
+                # Convert to integers and ensure within range
+                pages_to_remove = [int(p) for p in pages_to_remove if 1 <= int(p) <= total_pages]
+
+                # Check that we're not removing all pages
+                if len(pages_to_remove) >= total_pages:
+                    raise Exception("Cannot remove all pages from the PDF")
+
+                # PyMuPDF requires a list of pages to keep, not to remove
+                pages_to_keep = [i for i in range(total_pages) if i+1 not in pages_to_remove]
+
+                # Create a new document with only the pages we want to keep
+                new_doc = fitz.open()
+                for page_num in pages_to_keep:
+                    new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
+
+                new_file_id = str(uuid.uuid4())
+                new_filename = f"pages_removed_{file_info['filename']}"
+                output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                new_doc.save(output_path)
+                new_doc.close()
+                doc.close()
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": total_pages - len(pages_to_remove),
+                "filepath": output_path,
+                "removed_pages": pages_to_remove
+            }
+
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error removing pages from PDF: {str(e)}")
+
+    def preview_remove_pages(self, file_id, pages_to_remove):
+        """Create a preview showing which pages will be removed in red"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            doc = fitz.open(file_info['filepath'])
+            total_pages = len(doc)
+
+            # Convert to integers and ensure within range
+            pages_to_remove = [int(p) for p in pages_to_remove if 1 <= int(p) <= total_pages]
+
+            # Add a red highlight to pages that will be removed
+            for page_num in pages_to_remove:
+                page = doc[page_num-1]  # 0-based index
+
+                # Get page dimensions
+                rect = page.rect
+
+                # Add a semi-transparent red overlay
+                page.draw_rect(rect, color=(1, 0, 0), fill=(1, 0, 0, 0.3), overlay=True)
+
+                # Add a "TO BE DELETED" watermark
+                font_size = 36
+                text = "TO BE DELETED"
+                tw = fitz.TextWriter(rect)
+
+                # V PyMuPDF TextWriter.append() nepoužívá parametr color přímo
+                # Místo toho musíme použít fitz.utils.getColor pro převod barvy
+                red_color = (1, 0, 0)  # RGB červená
+                tw.append((rect.width/2, rect.height/2), text, fontsize=font_size,
+                          color=red_color)  # Správné použití color parametru
+
+                tw.write_text(page, opacity=0.8)
+
+            new_file_id = str(uuid.uuid4())
+            new_filename = f"preview_delete_{file_info['filename']}"
+            output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+            doc.save(output_path)
+            doc.close()
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": total_pages,
+                "filepath": output_path,
+                "preview": True,
+                "pages_to_remove": pages_to_remove
+            }
+
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error creating delete preview: {str(e)}")
+
+
     def split_pdf(self, file_id, split_method='byPage', ranges=None, pages=None, create_zip=True):
         """Split a PDF file based on specified method"""
         if file_id not in self.pdf_storage:
