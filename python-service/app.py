@@ -644,18 +644,60 @@ def download_zip(zip_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/rotate', methods=['POST'])
-def rotate_page():
+@app.route('/compress', methods=['POST'])
+def compress_pdf_route():
     data = request.json
-    file_id = data.get('file_id')
-    page_number = data.get('page', 1)
-    rotation = data.get('rotation', 90)
+    if not data or 'file_id' not in data:
+        return jsonify({'error': 'Missing required parameters'}), 400
 
-    if not file_id:
-        return jsonify({"error": "File ID is required"}), 400
+    file_id = data['file_id']
 
-    # Implement rotation in pdf_operations.py first
-    return jsonify({"error": "Not implemented yet"}), 501
+    try:
+        # Get compression parameters
+        compression_level = data.get('compression_level', 'medium')
+        preview_only = data.get('preview_only', False)
+
+        # Important: use file_storage if file_id is not in pdf_ops.pdf_storage
+        if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
+            # Copy file info to pdf_ops storage
+            pdf_ops.pdf_storage[file_id] = file_storage[file_id]
+
+        # Use the PdfOperations class to compress PDF
+        pdf_info = pdf_ops.compress_pdf(file_id, compression_level)
+
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create descriptive message
+        # Include compression ratio if available
+        compression_ratio = None
+        if 'compression_ratio' in pdf_info:
+            compression_ratio = pdf_info['compression_ratio']
+            description = f"Compressed PDF by {round(compression_ratio * 100)}% ({compression_level} level)"
+        else:
+            description = f"Compressed PDF ({compression_level} level)"
+
+        # Log operation (only if not preview)
+        if not preview_only:
+            log_operation(
+                api_key,
+                'compress',
+                pdf_info['id'],
+                pdf_info['filename'],
+                description
+            )
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        print(f"Error compressing PDF: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/remove-pages', methods=['POST'])
 def remove_pages_route():

@@ -780,6 +780,182 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error adding watermark to PDF: {str(e)}")
 
+    def compress_pdf(self, file_id, compression_level='medium'):
+        """
+        Compress a PDF file to reduce its size - improved version
+        """
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Map compression level to actual compression settings
+            compression_settings = {
+                'low': {'image_quality': 80, 'dpi': 150, 'pdfsettings': '/prepress'},
+                'medium': {'image_quality': 50, 'dpi': 120, 'pdfsettings': '/ebook'},
+                'high': {'image_quality': 30, 'dpi': 72, 'pdfsettings': '/screen'}
+            }
+
+            # Default to medium if invalid level
+            if compression_level not in compression_settings:
+                compression_level = 'medium'
+
+            settings = compression_settings[compression_level]
+
+            # Create a new file ID and path
+            new_file_id = str(uuid.uuid4())
+            new_filename = f"compressed_{file_info['filename']}"
+            output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+            temp_output = os.path.join(tempfile.gettempdir(), f"temp_{new_file_id}.pdf")
+
+            # APPROACH 1: Try using Ghostscript if available - most effective
+            try:
+                import subprocess
+                gs_params = ['-dPDFSETTINGS=' + settings['pdfsettings']]
+
+                # Execute ghostscript
+                subprocess.run(
+                    ['gs', '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.4',
+                    gs_params[0], '-dNOPAUSE', '-dQUIET', '-dBATCH',
+                    f'-sOutputFile={temp_output}', file_info['filepath']],
+                    check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+
+                if os.path.exists(temp_output):
+                    shutil.copy(temp_output, output_path)
+                    os.remove(temp_output)
+            except Exception as gs_error:
+                print(f"Ghostscript compression failed: {gs_error}")
+
+                # APPROACH 2: Try PyMuPDF for image-based compression
+                try:
+                    doc = fitz.open(file_info['filepath'])
+
+                    # Process each page for image compression
+                    for page_num in range(len(doc)):
+                        page = doc[page_num]
+                        image_list = page.get_images(full=True)
+
+                        for img_index, img in enumerate(image_list):
+                            xref = img[0]  # Image reference number
+
+                            try:
+                                base_image = doc.extract_image(xref)
+                                image_bytes = base_image["image"]
+
+                                # Convert to PIL image for recompression
+                                from PIL import Image
+                                import io
+
+                                # Load the image
+                                image = Image.open(io.BytesIO(image_bytes))
+
+                                # Resize image based on compression level
+                                if compression_level == 'high':
+                                    # Reduce by 50%
+                                    orig_width, orig_height = image.size
+                                    new_width = int(orig_width * 0.5)
+                                    new_height = int(orig_height * 0.5)
+                                    image = image.resize((new_width, new_height), Image.LANCZOS)
+                                elif compression_level == 'medium':
+                                    # Reduce by 25%
+                                    orig_width, orig_height = image.size
+                                    new_width = int(orig_width * 0.75)
+                                    new_height = int(orig_height * 0.75)
+                                    image = image.resize((new_width, new_height), Image.LANCZOS)
+                            except Exception as e:
+                                print(f"Error processing image: {e}")
+
+                    # Save with aggressive compression settings
+                    doc.save(output_path,
+                            garbage=4,  # Clean up unused objects
+                            clean=True,  # More cleanup
+                            deflate=True,  # Compress streams
+                            deflate_images=True,  # Compress images
+                            deflate_fonts=True)  # Compress fonts
+                    doc.close()
+                except Exception as mupdf_error:
+                    print(f"PyMuPDF compression failed: {mupdf_error}")
+
+                    # APPROACH 3: PyPDF as last resort
+                    reader = PdfReader(file_info['filepath'])
+                    writer = PdfWriter()
+
+                    for page in reader.pages:
+                        writer.add_page(page)
+
+                    writer.compress_content_streams = True
+
+                    with open(output_path, 'wb') as output_file:
+                        writer.write(output_file)
+
+            # If the output file doesn't exist or is somehow larger than the original,
+            # create a more aggressive compression using a different approach
+            if not os.path.exists(output_path) or os.path.getsize(output_path) >= os.path.getsize(file_info['filepath']):
+                # Try qpdf as a last resort if available
+                try:
+                    import subprocess
+                    subprocess.run(
+                        ['qpdf', '--linearize', '--compress-streams=y', '--decode-level=specialized',
+                         file_info['filepath'], output_path],
+                        check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
+                except Exception:
+                    # If all else fails, just use the original with JPG conversion trick
+                    # This method is more aggressive but might reduce quality
+                    try:
+                        # Open with PyMuPDF
+                        doc = fitz.open(file_info['filepath'])
+                        pdf_writer = fitz.open()
+
+                        # Convert each page to JPG then back to PDF
+                        for page_num in range(len(doc)):
+                            page = doc[page_num]
+                            pix = page.get_pixmap(matrix=fitz.Matrix(1, 1))
+
+                            # Higher compression for higher levels
+                            quality = 30
+                            if compression_level == 'low':
+                                quality = 60
+                            elif compression_level == 'medium':
+                                quality = 40
+
+                            img_data = pix.tobytes("jpeg", quality=quality)
+                            img = Image.open(io.BytesIO(img_data))
+
+                            # Create new PDF page
+                            new_page = pdf_writer.new_page(width=page.rect.width, height=page.rect.height)
+                            new_page.insert_image(page.rect, stream=img_data)
+
+                        # Save the resultant PDF
+                        pdf_writer.save(output_path)
+                        pdf_writer.close()
+                        doc.close()
+                    except Exception as e:
+                        print(f"Final compression method failed: {e}")
+                        # Last resort - just copy the file if all methods fail
+                        shutil.copy(file_info['filepath'], output_path)
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": file_info['pages'],  # Same number of pages as original
+                "filepath": output_path,
+                "compression_level": compression_level,
+                "original_size": os.path.getsize(file_info['filepath']),
+                "compressed_size": os.path.getsize(output_path),
+                "compression_ratio": 1 - (os.path.getsize(output_path) / os.path.getsize(file_info['filepath']))
+            }
+
+            # Store in pdf_storage
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error compressing PDF: {str(e)}")
+
     def get_file_path(self, file_id):
         """Get file path for download"""
         if file_id not in self.pdf_storage:
