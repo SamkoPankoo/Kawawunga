@@ -1,5 +1,4 @@
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
+# First import all required modules
 import os
 import uuid
 import json
@@ -88,6 +87,23 @@ def get_api_key_from_request():
 
     return api_key
 
+# Logging function
+def log_operation(api_key, action, file_id=None, filename=None, description=None):
+    try:
+        # Try using the imported logger if available
+        return logger_log_operation(
+            api_key=api_key,
+            action=action,
+            description=description or f"{action} operation on {filename or 'unknown file'}",
+            file_id=file_id,
+            file_name=filename,
+            operation_type=action
+        )
+    except Exception as e:
+        # Fallback to simple console logging
+        print(f"[LOG] Operation: {action}, File: {filename}, ID: {file_id}, API Key: {api_key[:5] if api_key else 'None'}...")
+        print(f"[LOG] Error during logging: {str(e)}")
+        return False
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -1010,22 +1026,16 @@ def preview_remove_pages_route():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-    if not file_id:
-        return jsonify({"error": "File ID is required"}), 400
 @app.route('/edit-metadata', methods=['POST'])
 def edit_metadata_route():
     data = request.json
     if not data or 'file_id' not in data or 'metadata' not in data:
         return jsonify({'error': 'Missing required parameters'}), 400
 
-    if not pages:
-        return jsonify({"error": "Page numbers are required"}), 400
     file_id = data['file_id']
     metadata = data['metadata']
     preview_only = data.get('preview_only', False)
 
-    # Implement page removal in pdf_operations.py first
-    return jsonify({"error": "Not implemented yet"}), 501
     try:
         # Make sure the file exists in pdf_ops storage
         if file_id not in pdf_ops.pdf_storage and file_id in file_storage:
@@ -1085,6 +1095,98 @@ def get_metadata_route(file_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api-docs', methods=['GET'])
+def api_docs():
+    # Read the Swagger JSON file if it exists
+    try:
+        with open('swagger.json', 'r') as f:
+            swagger_data = json.load(f)
+        return jsonify(swagger_data)
+    except:
+        return jsonify({"error": "Swagger documentation not available"}), 404
+
+def get_zip_path(self, zip_id):
+    """Get zip file path for download"""
+    # First, check if we have a direct match in our storage
+    for file_id, file_info in self.pdf_storage.items():
+        if file_id == zip_id and 'filepath' in file_info:
+            return file_info['filepath']
+
+    # Then check for zip references
+    for file_id, file_info in self.pdf_storage.items():
+        if 'zip_id' in file_info and file_info['zip_id'] == zip_id:
+            if 'zip_path' in file_info:
+                return file_info['zip_path']
+
+    # If not found, search for any ZIP file with matching id pattern
+    zip_pattern = f"*{zip_id}*.zip"
+    for filename in os.listdir(self.upload_folder):
+        if fnmatch.fnmatch(filename, zip_pattern):
+            return os.path.join(self.upload_folder, filename)
+
+    return None
+
+@app.route('/test-logging-flow', methods=['GET'])
+def test_logging_flow():
+    """Test kompletného logovacieho flow"""
+    try:
+        # 1. Získaj admin API kľúč
+        admin_key = get_admin_api_key()
+        if not admin_key:
+            return jsonify({'error': 'Failed to get admin API key'}), 500
+
+        # 2. Vytvor testovací log s admin API kľúčom
+        log_result = logger_log_operation(
+            api_key=admin_key,
+            action='test-flow',
+            description='Testing complete logging flow',
+            file_id='test-file-id',
+            file_name='test-file.pdf',
+            operation_type='test'
+        )
+
+        # 3. Vráť výsledok testu
+        return jsonify({
+            'success': log_result,
+            'api_key_used': admin_key[:10] + '...',
+            'message': 'Logging flow test completed'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Cleanup task for temporary files (run in production)
+def cleanup_old_files():
+    while True:
+        time.sleep(3600)  # Sleep for 1 hour
+
+        try:
+            # Use the PdfOperations class to clean up files
+            pdf_ops.cleanup_files(24)  # 24 hours
+
+            # Also clean up any remaining files in the old system
+            now = time.time()
+            max_age = 24 * 3600  # 24 hours
+
+            # Clean up old files
+            for root, dirs, files in os.walk(app.config['UPLOAD_FOLDER']):
+                for filename in files:
+                    filepath = os.path.join(root, filename)
+                    if os.path.isfile(filepath):
+                        file_age = now - os.path.getmtime(filepath)
+                        if file_age > max_age:
+                            try:
+                                os.remove(filepath)
+                                print(f"Removed old file: {filepath}")
+                            except:
+                                pass
+        except Exception as e:
+            print(f"Error during cleanup: {str(e)}")
 
 if __name__ == '__main__':
+    # Start cleanup task in a separate thread
+    import threading
+    cleanup_thread = threading.Thread(target=cleanup_old_files, daemon=True)
+    cleanup_thread.start()
+
+    # Start the Flask app
     app.run(host='0.0.0.0', port=5000, debug=True)

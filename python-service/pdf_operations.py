@@ -1502,6 +1502,24 @@ class PdfOperations:
 
         except Exception as e:
             raise Exception(f"Error converting PDF to images: {str(e)}")
+
+    def get_page_count(self, file_path):
+        """Get the number of pages in a PDF file"""
+        try:
+            # Try with PyPDF first
+            try:
+                reader = PdfReader(file_path)
+                return len(reader.pages)
+            except:
+                # If PyPDF fails, try with PyMuPDF
+                doc = fitz.open(file_path)
+                page_count = len(doc)
+                doc.close()
+                return page_count
+        except Exception as e:
+            print(f"Error getting page count: {str(e)}")
+            return 0
+
     def get_file_path(self, file_id):
         """Get file path for download"""
         if file_id not in self.pdf_storage:
@@ -1519,5 +1537,34 @@ class PdfOperations:
 
     def cleanup_files(self, max_age_hours=24):
         """Clean up temporary files older than specified age"""
-        # Implementation for cleanup
-        pass
+        import time
+
+        now = time.time()
+        max_age_seconds = max_age_hours * 3600
+
+        # Preview files should be cleaned up more aggressively
+        preview_max_age_seconds = 3600  # 1 hour
+
+        for root, dirs, files in os.walk(self.upload_folder):
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                if os.path.isfile(filepath):
+                    file_age = now - os.path.getmtime(filepath)
+
+                    # Clean up preview files more aggressively
+                    is_preview = "preview_" in filename
+                    max_age = preview_max_age_seconds if is_preview else max_age_seconds
+
+                    if file_age > max_age:
+                        try:
+                            os.remove(filepath)
+                            print(f"Removed old file: {filepath}")
+
+                            # Remove from storage if present
+                            for file_id, file_info in list(self.pdf_storage.items()):
+                                if file_info.get('filepath') == filepath:
+                                    del self.pdf_storage[file_id]
+                                    break
+
+                        except Exception as e:
+                            print(f"Error removing file {filepath}: {str(e)}")
