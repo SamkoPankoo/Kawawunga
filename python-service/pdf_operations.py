@@ -618,6 +618,168 @@ class PdfOperations:
         except Exception as e:
             raise Exception(f"Error rotating PDF: {str(e)}")
 
+    def add_watermark(self, file_id, text, opacity=0.3, color="gray", size=36, angle=45, pages=None, preview_only=False):
+        """Add text watermark to PDF pages"""
+        if file_id not in self.pdf_storage:
+            raise Exception("File not found")
+
+        file_info = self.pdf_storage[file_id]
+
+        try:
+            # Convert opacity to float in range 0-1
+            if isinstance(opacity, int) and opacity > 1:
+                opacity = opacity / 100.0
+            opacity = min(max(float(opacity), 0), 1)  # Ensure in range 0-1
+
+            # Try with PyMuPDF
+            try:
+                # Open the PDF with PyMuPDF
+                doc = fitz.open(file_info['filepath'])
+                total_pages = len(doc)
+
+                # Determine which pages to watermark
+                if pages is None or not pages:
+                    pages = list(range(1, total_pages + 1))
+
+                # Validate pages
+                pages = [p for p in pages if 1 <= p <= total_pages]
+
+                # Create font color
+                if color == "gray":
+                    text_color = (0.5, 0.5, 0.5)
+                elif color == "red":
+                    text_color = (1, 0, 0)
+                elif color == "blue":
+                    text_color = (0, 0, 1)
+                elif color == "green":
+                    text_color = (0, 0.5, 0)
+                elif color == "black":
+                    text_color = (0, 0, 0)
+                else:
+                    text_color = (0.5, 0.5, 0.5)  # Default to gray
+
+                # Apply watermark to all selected pages
+                for page_num in pages:
+                    # Get the page (PyMuPDF uses 0-based indexing)
+                    page = doc[page_num - 1]
+
+                    # Get page dimensions
+                    rect = page.rect
+                    center_x = rect.width / 2
+                    center_y = rect.height / 2
+
+                    # Create text watermark
+                    fontsize = size
+                    text_writer = fitz.TextWriter(rect, opacity=opacity, color=text_color)
+                    text_writer.append((center_x, center_y), text, fontsize=fontsize, rotate=angle)
+                    text_writer.write_text(page)
+
+                # For preview, use a temporary filename with "preview_" prefix
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_watermarked_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"watermarked_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                doc.save(output_path)
+                doc.close()
+
+            except Exception as e:
+                # If PyMuPDF failed, try with PyPDF and reportlab
+                from reportlab.pdfgen import canvas
+                from reportlab.lib.pagesizes import letter
+                from reportlab.lib.colors import red, blue, green, black, gray
+                from reportlab.pdfbase import pdfmetrics
+                from reportlab.pdfbase.ttfonts import TTFont
+                from io import BytesIO
+
+                # Get proper color
+                if color == "red":
+                    text_color = red
+                elif color == "blue":
+                    text_color = blue
+                elif color == "green":
+                    text_color = green
+                elif color == "black":
+                    text_color = black
+                else:
+                    text_color = gray
+
+                # Open original PDF
+                reader = PdfReader(file_info['filepath'])
+                writer = PdfWriter()
+
+                total_pages = len(reader.pages)
+
+                # Determine which pages to watermark
+                if pages is None or not pages:
+                    pages = list(range(1, total_pages + 1))
+
+                # Validate pages
+                pages = [p for p in pages if 1 <= p <= total_pages]
+
+                # Process each page
+                for i in range(total_pages):
+                    page = reader.pages[i]
+
+                    if i + 1 in pages:  # If this page should be watermarked
+                        # Create watermark
+                        packet = BytesIO()
+                        c = canvas.Canvas(packet, pagesize=(page.mediabox.width, page.mediabox.height))
+                        c.setFont("Helvetica", size)
+                        c.setFillColor(text_color)
+                        c.setFillAlpha(opacity)
+
+                        # Position watermark in the center
+                        c.saveState()
+                        c.translate(page.mediabox.width / 2, page.mediabox.height / 2)
+                        c.rotate(angle)
+                        c.drawCentredString(0, 0, text)
+                        c.restoreState()
+
+                        c.save()
+
+                        # Get the watermark as a PDF page
+                        packet.seek(0)
+                        watermark = PdfReader(packet).pages[0]
+
+                        # Merge watermark with page
+                        page.merge_page(watermark)
+
+                    writer.add_page(page)
+
+                # For preview, use a temporary filename with "preview_" prefix
+                if preview_only:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"preview_watermarked_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+                else:
+                    new_file_id = str(uuid.uuid4())
+                    new_filename = f"watermarked_{file_info['filename']}"
+                    output_path = os.path.join(self.upload_folder, f"{new_file_id}_{new_filename}")
+
+                with open(output_path, 'wb') as output_file:
+                    writer.write(output_file)
+
+            # Create file info
+            pdf_info = {
+                "id": new_file_id,
+                "filename": new_filename,
+                "pages": total_pages,
+                "filepath": output_path,
+                "preview": preview_only
+            }
+
+            # Store in pdf_storage (even previews, they'll be cleaned up later)
+            self.pdf_storage[new_file_id] = pdf_info
+            return pdf_info
+
+        except Exception as e:
+            raise Exception(f"Error adding watermark to PDF: {str(e)}")
+
     def get_file_path(self, file_id):
         """Get file path for download"""
         if file_id not in self.pdf_storage:

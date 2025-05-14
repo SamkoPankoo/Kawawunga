@@ -529,14 +529,92 @@ def rotate_pdf():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/download/<file_id>', methods=['GET'])
-def download_pdf(file_id):
-    filepath = pdf_ops.get_file_path(file_id)
+@app.route('/watermark', methods=['POST'])
+def add_watermark():
+    data = request.json
+    if not data or 'file_id' not in data or 'text' not in data:
+        return jsonify({'error': 'Missing required parameters'}), 400
 
-    if not filepath:
-        return jsonify({"error": "File not found"}), 404
+    file_id = data['file_id']
 
     filename = os.path.basename(filepath).split('_', 1)[1] if '_' in os.path.basename(filepath) else os.path.basename(filepath)
+    # Check if file exists in either system
+    if file_id not in pdf_ops.pdf_storage and file_id not in file_storage:
+        return jsonify({'error': 'File not found'}), 404
+
+    # Get watermark parameters
+    watermark_text = data['text']
+    opacity = data.get('opacity', 0.3)
+
+    # Handle color (could be an object with a 'value' property from frontend)
+    if isinstance(data.get('color'), dict) and 'value' in data['color']:
+        color = data['color']['value']
+    else:
+        color = data.get('color', 'gray')
+
+    size = data.get('size', 36)
+
+    # Handle angle (could be string from frontend)
+    angle = data.get('angle', 45)
+    if isinstance(angle, str):
+        try:
+            angle = int(angle)
+        except ValueError:
+            angle = 45
+
+    # Handle page selection
+    page_selection = data.get('pageSelection', 'all')
+    pages = data.get('pages', [])
+
+    # If no specific pages were provided but we have custom selection method
+    if not pages:
+        if page_selection == 'current' and 'currentPage' in data:
+            pages = [int(data['currentPage'])]
+        elif page_selection == 'range' and 'pageRange' in data:
+            start = int(data['pageRange'].get('from', 1))
+            end = int(data['pageRange'].get('to', 1))
+            pages = list(range(start, end + 1))
+        elif page_selection == 'custom' and 'customPages' in data:
+            # Parse custom pages (comma-separated list)
+            pages = [int(p.strip()) for p in data['customPages'].split(',') if p.strip().isdigit()]
+
+    try:
+        # Use the PdfOperations class to add watermark
+        pdf_info = pdf_ops.add_watermark(file_id, watermark_text, opacity, color, size, angle, pages)
+
+        # Also store in the old system for compatibility
+        file_storage[pdf_info['id']] = pdf_info
+
+        # Get API key for logging
+        api_key = get_api_key_from_request()
+
+        # Create a descriptive message
+        page_desc = "all pages"
+        if pages:
+            if len(pages) == 1:
+                page_desc = f"page {pages[0]}"
+            else:
+                page_desc = f"{len(pages)} pages"
+
+        description = f"Added watermark '{watermark_text}' to {page_desc}"
+
+        # Log operation
+        log_operation(
+            api_key,
+            'watermark',
+            pdf_info['id'],
+            pdf_info['filename'],
+            description
+        )
+
+        # Return metadata (excluding internal filepath)
+        response_info = pdf_info.copy()
+        response_info.pop('filepath', None)
+
+        return jsonify(response_info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
     try:
         return send_file(
