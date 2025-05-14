@@ -537,7 +537,6 @@ def add_watermark():
 
     file_id = data['file_id']
 
-    filename = os.path.basename(filepath).split('_', 1)[1] if '_' in os.path.basename(filepath) else os.path.basename(filepath)
     # Check if file exists in either system
     if file_id not in pdf_ops.pdf_storage and file_id not in file_storage:
         return jsonify({'error': 'File not found'}), 404
