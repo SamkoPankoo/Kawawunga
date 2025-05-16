@@ -1,3 +1,4 @@
+// src/components/admin/AdminHistoryComponent.vue
 <template>
   <v-card class="my-4">
     <v-card-title class="d-flex align-center">
@@ -38,9 +39,11 @@
             </v-avatar>
           </template>
           <template v-slot:append>
-            <v-chip size="small" :color="activity.accessType === 'api' ? 'blue' : 'green'">
-              {{ activity.accessType }}
-            </v-chip>
+            <div class="d-flex flex-column align-end">
+              <div class="text-caption" v-if="activity.city && activity.city !== 'Unknown'">
+                {{ activity.city }}, {{ activity.country }}
+              </div>
+            </div>
           </template>
         </v-list-item>
 
@@ -341,7 +344,7 @@ const formatTimestamp = (timestamp) => {
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  // Format relative time with translations
+  // Pro relativní čas s překlady
   if (diffMins < 1) {
     return t('timeAgo.justNow');
   } else if (diffMins < 60) {
@@ -351,8 +354,8 @@ const formatTimestamp = (timestamp) => {
   } else if (diffDays < 7) {
     return t('timeAgo.daysAgo', { count: diffDays });
   } else {
-    // Format date
-    return date.toLocaleDateString();
+    // Formátování data včetně času
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   }
 };
 
