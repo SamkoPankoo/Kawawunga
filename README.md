@@ -9,7 +9,7 @@ git clone https://github.com/SamkoPankoo/Kawawunga
 ```
 On windows, make sure you have docker desktop installed and running !!
 ```bash
-cd Kawwunga
+cd Kawawunga
 docker-compose build
 docker-compose up -d
 ```
