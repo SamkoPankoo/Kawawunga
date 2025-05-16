@@ -20,7 +20,8 @@
     "error": "Error",
     "close": "Close",
     "apiDocs": "API Docs",
-    "userGuide": "User Guide"
+    "userGuide": "User Guide",
+    "adminDashboard": "Admin Dashboard"
   },
   "auth": {
     "email": "Email",
@@ -47,7 +48,58 @@
     "generateNewKey": "Generate New Key",
     "copyToClipboard": "Copy to clipboard",
     "quickAccess": "Quick Access",
-    "open": "Open"
+    "open": "Open",
+    "adminWelcome": "Admin Dashboard",
+    "adminWelcomeMessage": "Here you can manage users, view activity history, and perform administrative tasks.",
+
+    "testLog": "Test Log",
+    "testLogCreated": "Test log created successfully",
+    "testLogFailed": "Failed to create test log",
+    "authRefreshed": "Authentication refreshed successfully",
+    "authRefreshFailed": "Failed to refresh authentication",
+    "apiTestSuccess": "API key authentication succeeded",
+    "apiTestFailed": "API key authentication failed",
+    "directLogSuccess": "Direct log test succeeded",
+    "directLogFailed": "Direct log test failed",
+    "historyLoadFailed": "Failed to load history",
+    "testOperationDesc": "Test PDF operation from direct test",
+    "testOperationFromHistory": "Test PDF operation from history component",
+    "error": "Error",
+    "unknownError": "Unknown error"
+  },
+  "operations": {
+    "operation": "operation",
+    "pdf-merge": "Merge",
+    "pdf-split": "Split",
+    "pdf-watermark": "Watermark",
+    "pdf-rotate": "Rotate",
+    "pdf-delete-pages": "Delete Pages",
+    "pdf-protect": "Protect",
+    "pdf-download": "Download",
+    "pdf-compress": "Compress",
+    "pdf-edit-metadata": "Edit Metadata",
+    "pdf-image-to-pdf": "Image to PDF",
+    "pdf-pdf-to-image": "PDF to Image",
+    "pdf-test": "Test",
+    "POST": "POST",
+    "GET": "GET",
+    "export-user-guide": "Export User Guide",
+    "merge": "Merge PDF",
+    "split": "Split PDF",
+    "watermark": "Add Watermark",
+    "rotate": "Rotate PDF",
+    "deletePages": "Delete Pages",
+    "protect": "Protect PDF",
+    "compress": "Compress PDF",
+    "editMetadata": "Edit Metadata",
+    "imageToPdf": "Image to PDF",
+    "pdfToImage": "PDF to Image"
+  },
+  "timeAgo": {
+    "justNow": "Just now",
+    "minutesAgo": "{count} minute(s) ago",
+    "hoursAgo": "{count} hour(s) ago",
+    "daysAgo": "{count} day(s) ago"
   },
   "apiDocs": {
     "title": "API Documentation",
@@ -56,23 +108,132 @@
     "python": "Python API",
     "backendTitle": "Backend API Documentation",
     "pythonTitle": "Python Service API Documentation",
-    "openInNewTab": "Open in new tab"
+    "openInNewTab": "Open in new tab",
+    "iframeError": "Failed to load API documentation. Your browser may be blocking third-party cookies or content.",
+    "openDirectly": "If the documentation doesn't load above, you can open it directly in a new tab:"
   },
   "userGuide": {
     "title": "User Guide",
     "downloadPdf": "Download PDF",
     "introduction": "Introduction",
     "introText": "PDF Editor is a web application that allows you to manipulate PDF files in various ways. This guide explains how to use the application and its features.",
+    "introDescription": "PDF Editor allows users to easily manipulate PDF files directly in the web browser. You don't need to install any additional software - just log in and start working with your PDF documents.",
     "gettingStarted": "Getting Started",
     "gettingStartedText": "To use the PDF Editor, you need to sign in with your account. If you don't have an account, you can register for free.",
+    "registration": "Registration",
+    "registrationStep1": "Click the \"Register\" button in the top menu",
+    "registrationStep2": "Fill in your email address and password",
+    "registrationStep3": "Click the \"Register\" button",
+    "login": "Login",
+    "loginStep1": "Click the \"Login\" button in the top menu",
+    "loginStep2": "Enter your email address and password",
+    "loginStep3": "Click the \"Login\" button",
+    "dashboard": "Dashboard",
+    "dashboardDescription": "After logging in, the dashboard will be displayed where you will see:",
+    "recentActivityDesc": "Recent Activity - list of recently edited files",
+    "quickAccessDesc": "Quick Access - shortcuts to the most used tools",
+    "apiAccessDesc": "API Access - your API key for programmatic access to services",
     "features": "Features",
     "tools": "Tools",
+    "merge": {
+      "title": "Merge PDF",
+      "step1": "Go to the \"Merge PDF\" page",
+      "step2": "Upload PDF files you want to merge",
+      "step3": "Arrange files in the desired order by moving them up/down",
+      "step4": "Click the \"Merge\" button",
+      "step5": "After completion, download the merged PDF file"
+    },
+    "split": {
+      "title": "Split PDF",
+      "step1": "Go to the \"Split PDF\" page",
+      "step2": "Upload the PDF file you want to split",
+      "step3": "Select the split method (by pages, by range, extract specific pages)",
+      "step4": "Enter the desired pages or ranges",
+      "step5": "Click the \"Split\" button",
+      "step6": "After completion, download the resulting PDF files or ZIP archive"
+    },
+    "watermark": {
+      "title": "Add Watermark",
+      "step1": "Go to the \"Add Watermark\" page",
+      "step2": "Upload the PDF file you want to add a watermark to",
+      "step3": "Enter the watermark text",
+      "step4": "Adjust watermark parameters (transparency, size, color, angle)",
+      "step5": "Select the pages to apply the watermark to",
+      "step6": "Click the \"Apply Watermark\" button",
+      "step7": "After completion, download the resulting PDF file"
+    },
+    "rotate": {
+      "title": "Rotate PDF",
+      "step1": "Go to the \"Rotate PDF\" page",
+      "step2": "Upload the PDF file you want to rotate",
+      "step3": "Select the rotation angle (90°, 180°, 270°)",
+      "step4": "Select the pages you want to rotate",
+      "step5": "Click the \"Rotate\" button",
+      "step6": "After completion, download the resulting PDF file"
+    },
+    "deletePages": {
+      "title": "Delete Pages",
+      "step1": "Go to the \"Delete Pages\" page",
+      "step2": "Upload the PDF file from which you want to delete pages",
+      "step3": "Select the pages you want to delete",
+      "step4": "Click the \"Delete Pages\" button",
+      "step5": "After completion, download the resulting PDF file"
+    },
     "apiUsage": "API Usage",
     "apiUsageText": "You can also use our API to integrate PDF editing capabilities into your own applications. See the API Documentation for more details.",
+    "gettingApiKey": "Getting API Key",
+    "apiKeyDescription": "You can find your personal API key on the dashboard in the \"API Access\" section. You must include this key in the header of every API request.",
+    "authentication": "Authentication",
+    "usingApi": "Using API",
+    "apiRequestHeader": "You must add a header with your API key to every API request:",
+    "fullApiDocumentation": "You can find the complete API documentation in the \"API Documentation\" section in the main menu.",
     "commonIssues": "Common Issues",
-    "commonIssuesText": "This section covers common issues you might encounter while using the PDF Editor and how to resolve them."
+    "commonIssuesText": "This section covers common issues you might encounter while using the PDF Editor and how to resolve them.",
+    "issues": {
+      "fileSizeLimit": {
+        "question": "I cannot upload a file larger than 50 MB",
+        "answer": "PDF Editor currently has a 50 MB limit for uploaded files. If you need to process larger files, try first splitting them into smaller parts or use a PDF compression tool."
+      },
+      "mergeMultipleFiles": {
+        "question": "How can I merge more than 10 PDF files?",
+        "answer": "Even though the interface shows the option to upload a maximum of 10 files at once, you can merge more files gradually. First merge the first 10 files, then use the resulting file and merge it with other files."
+      },
+      "passwordProtected": {
+        "question": "My password-protected PDF cannot be processed",
+        "answer": "PDF Editor currently does not support processing password-protected PDF files. Before uploading to the application, you must remove the password from the PDF (using the original application in which the PDF was created)."
+      },
+      "formattingLost": {
+        "question": "Formatting/fonts were lost after merging PDFs",
+        "answer": "Some PDF files use special fonts that may not be properly embedded in the document. We recommend that you always check the resulting PDF file and, in case of formatting problems, try to save the original files with embedded fonts."
+      },
+      "newApiKey": {
+        "question": "How can I create a new API key?",
+        "answer": "You can generate a new API key on the Dashboard in the \"API Access\" section. Click the \"Generate New Key\" button. Please note that after generating a new key, the previous key will be invalid."
+      }
+    }
+  },
+  "cookies": {
+    "message": "This website uses cookies to ensure you get the best experience on our website.",
+    "accept": "Accept All Cookies",
+    "decline": "Decline",
+    "learnMore": "Learn More",
+    "privacyTitle": "Cookie Privacy Policy",
+    "privacyIntro": "This Cookie Policy explains how PDF Editor uses cookies and similar technologies to provide, customize, evaluate, improve, promote and protect our services.",
+    "whatAreCookies": "What are cookies?",
+    "cookiesExplanation": "Cookies are small text files that are stored on your device when you visit a website. They are widely used to make websites work more efficiently and provide information to the website owners.",
+    "typesTitle": "Types of cookies we use",
+    "essentialTitle": "Essential Cookies:",
+    "essentialDescription": "These cookies are necessary for the website to function properly. They enable basic functions like page navigation and access to secure areas of the website.",
+    "preferencesTitle": "Preference Cookies:",
+    "preferencesDescription": "These cookies allow the website to remember choices you make (such as your language preference) and provide enhanced, more personal features.",
+    "statisticsTitle": "Statistics Cookies:",
+    "statisticsDescription": "These cookies collect information about how visitors use a website, for instance which pages they visit most often. All information these cookies collect is aggregated and therefore anonymous.",
+    "managingTitle": "Managing cookies",
+    "managingDescription": "You can set your browser to block or alert you about these cookies, but some parts of the site will not work if you do so. You can also delete cookies that have already been set."
   },
   "pdf": {
+    "metadataNote": "Note: Metadata editing may not be supported in all PDF viewers.",
+    "rotationAngle": "Angle",
     "upload": "Upload PDF",
     "merge": "Merge PDF",
     "split": "Split PDF",
@@ -83,27 +244,41 @@
     "download": "Download",
     "viewer": "PDF Viewer",
     "preview": "Preview",
+    "splitOptions": "Split Options",
+    "addRange": "Add Range",
+    "portrait": "Portrait",
+    "landscape": "Landscape",
+    "imagesCreated": "Created images",
     "toolTitle": "PDF Editor Tools",
     "toolSubtitle": "Select a tool to start editing your PDF documents",
-
+    "compressionResult": "Compression Result",
     "mergePdf": "Merge PDFs",
     "mergePdfDesc": "Combine multiple PDF files into one document",
-
+    "previewCompressed": "Preview",
     "rotatePdf": "Rotate PDF",
+    "keywordsHint": "Comma-separated keywords",
+    "ownerPassword": "Owner Password",
+    "pagesDeletedDetails": "Deleted pages: ",
     "rotatePdfDesc": "Rotate pages in your PDF document",
-
+    "finalCompressionResult": "Compression Result",
     "splitPdf": "Split PDF",
     "splitPdfDesc": "Split a PDF document into multiple files",
-
+    "previewRotated": "Preview Rotated",
+    "previewMerged": "Preview Merged",
+    "previewSplit": "Preview Split",
+    "previewWatermark": "Preview Watermarked",
+    "previewProtected": "Preview Protected",
+    "cannotDeleteAllPages": "Cannot delete all pages",
     "watermarkPdf": "Add Watermark",
     "watermarkPdfDesc": "Add text or image watermark to your PDF",
 
     "imageToPdf": "Image to PDF",
     "imageToPdfDesc": "Convert images to PDF document",
-
+    "defineRanges": "Define ranges",
+    "extractPagesDesc": "extract specific pages from a PDF document",
     "pdfToImage": "PDF to Image",
     "pdfToImageDesc": "Convert PDF pages to image files",
-
+    "previewPasswordInfo": "After applying password protection, you will need to enter the password to view the PDF.",
     "deletePages": "Delete Pages",
     "deletePagesDesc": "Remove pages from your PDF document",
 
@@ -177,6 +352,11 @@
     "keywords": "Keywords",
     "applyMetadata": "Apply Metadata",
     "metadataApplied": "Metadata successfully updated",
+    "pageSize": "Page Size",
+    "pageOrientation": "Page Orientation",
+    "imageToPdfNote": "Note: Image to PDF conversion may affect image quality depending on the original image resolution and format.",
+    "convert": "Convert",
+    "conversionComplete": "Conversion complete",
 
     "fileProcessed": "File successfully processed",
     "filesProcessed": "Files successfully processed",
@@ -223,8 +403,47 @@
     "imagesExtracted": "Successfully extracted {count} images from the PDF",
     "imagesFound": "images found",
     "moreImagesAvailable": "{count} more images...",
-    "extractImagesError": "Error extracting images from PDF"
+    "extractImagesError": "Error extracting images from PDF",
+    "dropImagesHere": "Drop files here or click to browse",
+    "selectedImages": "Selected Images",
+    "imageOrder": "Image order",
+    "pageSettings": "Page settings",
+    "conversionOptions": "Conversion options",
+    "previewWatermarked": "Preview Watermarked",
+    "selectPagesToDelete": "Select pages to delete",
+    "selectedPagesCount": "Selected pages: {count}",
+    "compressionNote": "Note: Higher compression may reduce quality.",
+    "ownerPasswordHint": "Optional password to restrict permissions (printing, copying, etc.).",
+    "selectPagesOption": "Select pages option",
+    "minPagesWarning": "Please select at least {min} pages.",
+    "extractPages": "Extract Pages",
+    "splitByPage": "Split by page",
+    "splitByRanges": "Split by range",
+    "eachPageSeparate": "Each page as separate file"
   },
+  "admin": {
+    "adminWelcome": "Admin Dashboard",
+    "refreshData": "Refresh Data",
+    "adminWelcomeMessage": "Here you can manage users, view activity history, and perform administrative tasks.",
+    "allUserActivity": "All User Activity",
+    "exportCSV": "Export CSV",
+    "clearHistory": "Clear History",
+    "clearHistoryConfirm": "Clear All History?",
+    "clearHistoryWarning": "Are you sure you want to delete all activity history? This action cannot be undone.",
+    "clearAll": "Clear All",
+    "notAuthorized": "You are not authorized to perform this action",
+    "historyLoadFailed": "Failed to load history",
+    "exportSuccess": "History exported successfully",
+    "exportFailed": "Failed to export history",
+    "historyCleared": "History cleared successfully",
+    "clearFailed": "Failed to clear history",
+    "noHistoryFound": "No history records found",
+    "unauthorizedAccess": "Unauthorized access. Please log in again.",
+    "forbiddenAccess": "Access forbidden. You need admin privileges.",
+    "authFailed": "Authentication failed. Please log in again."
+  },
+
+
   "validation": {
     "required": "This field is required",
     "email": "Please enter a valid email address",
