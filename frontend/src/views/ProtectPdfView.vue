@@ -37,7 +37,6 @@
     <v-row v-if="pdfInfo">
       <v-col cols="12" md="7">
         <v-card>
-
           <v-card-title class="d-flex align-center">
             <span>{{ $t('pdf.preview') }}</span>
             <v-spacer></v-spacer>
@@ -55,7 +54,6 @@
                 @error="handleError"
                 style="display: block; width: 100%;"
             ></vue-pdf-embed>
-
             <v-progress-circular
                 v-if="loading"
                 indeterminate
@@ -84,9 +82,7 @@
                 :append-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 @click:append="showPassword = !showPassword"
                 class="mb-2"
-
                 @update:model-value="previewProtection"
-
             ></v-text-field>
 
             <v-text-field
@@ -95,9 +91,7 @@
                 :rules="[rules.required, validatePasswordMatch]"
                 :type="showPassword ? 'text' : 'password'"
                 class="mb-4"
-
                 @update:model-value="previewProtection"
-
             ></v-text-field>
 
             <v-text-field
@@ -107,9 +101,7 @@
                 persistent-hint
                 :type="showPassword ? 'text' : 'password'"
                 class="mb-4"
-
                 @update:model-value="previewProtection"
-
             ></v-text-field>
 
             <v-divider class="my-4"></v-divider>
@@ -119,15 +111,12 @@
                 v-model="allowPrinting"
                 :label="$t('pdf.allowPrinting')"
                 class="mb-2"
-
                 @update:model-value="previewProtection"
-
             ></v-switch>
             <v-switch
                 v-model="allowCopying"
                 :label="$t('pdf.allowCopying')"
                 class="mb-2"
-
                 @update:model-value="previewProtection"
             ></v-switch>
 
@@ -139,7 +128,6 @@
             >
               {{ $t('pdf.previewPasswordInfo') }}
             </v-alert>
-
           </v-card-text>
           <v-card-actions class="px-4 pb-4">
             <v-spacer></v-spacer>
@@ -187,7 +175,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
     <LogOperation
         v-if="operationSuccess"
         :operation="'protect'"
@@ -195,12 +182,10 @@
         :metadata="getLogMetadata()"
 
     />
-
   </v-container>
 </template>
 
 <script setup>
-
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
@@ -209,7 +194,6 @@ import {useAuthStore} from '@/stores/auth';
 import LogOperation from '@/components/pdf/LogOperation.vue';
 const operationSuccess = ref(false);
 const resultFileId = ref(null);
-
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -223,7 +207,6 @@ const loading = ref(false);
 const error = ref(null);
 const fileId = ref(null);
 
-
 // For live preview
 const previewPdfUrl = ref(null);
 const isPreviewProtected = ref(false);
@@ -234,7 +217,6 @@ const previewTimeout = ref(null);
 const currentPreviewUrl = computed(() => {
   return previewPdfUrl.value || pdfUrl.value;
 });
-
 
 // Protection options
 const userPassword = ref('');
@@ -252,7 +234,6 @@ const rules = {
   required: value => !!value || t('validation.required')
 };
 
-
 const getLogDescription = () => {
   return `Protected PDF with password (${allowPrinting.value ? 'printing allowed' : 'printing disabled'}, ${allowCopying.value ? 'copying allowed' : 'copying disabled'})`;
 };
@@ -269,7 +250,6 @@ const getLogMetadata = () => {
   };
 };
 
-
 const validatePasswordMatch = () => {
   return userPassword.value === confirmPassword.value || t('validation.passwordMatch');
 };
@@ -283,7 +263,6 @@ const canProtect = computed(() => {
 const handleFileChange = () => {
   if (selectedFile.value) {
     pdfUrl.value = URL.createObjectURL(selectedFile.value);
-
     // Reset preview when changing file
     previewPdfUrl.value = null;
     isPreviewProtected.value = false;
@@ -294,7 +273,6 @@ const handleFileChange = () => {
     pdfInfo.value = null;
     fileId.value = null;
     isPreviewProtected.value = false;
-
   }
 };
 
@@ -332,9 +310,7 @@ const uploadFile = async () => {
     formData.append('pdf', selectedFile.value);
 
     const response = await axios.post(
-
         `/python-api/upload`,
-
         formData,
         {
           headers: {
@@ -346,12 +322,10 @@ const uploadFile = async () => {
     fileId.value = response.data.id;
     pdfInfo.value = response.data;
 
-
     // Initial preview after upload
     if (userPassword.value && userPassword.value === confirmPassword.value) {
       previewProtection();
     }
-
   } catch (error) {
     console.error('Error uploading PDF:', error);
     error.value = error.response?.data?.error || t('pdf.uploadError');
@@ -359,7 +333,6 @@ const uploadFile = async () => {
     loading.value = false;
   }
 };
-
 
 // Function to create live preview of protection
 const previewProtection = () => {
@@ -438,7 +411,6 @@ const previewProtection = () => {
   }, 500); // 500ms debounce
 };
 
-
 const protectPdf = async () => {
   if (!fileId.value) return;
 
@@ -464,15 +436,12 @@ const protectPdf = async () => {
     }
 
     const response = await axios.post(
-
         `/python-api/protect`,
-
         requestData,
         { headers }
     );
 
     resultFileUrl.value = response.data.id;
-
     resultFileId.value = response.data.id;
     operationSuccess.value = true;
     resultFilename.value = response.data.filename || 'protected.pdf';
@@ -497,7 +466,6 @@ const protectPdf = async () => {
     fileId.value = response.data.id;
     pdfInfo.value = response.data;
 
-
   } catch (error) {
     console.error('Error protecting PDF:', error);
     error.value = error.response?.data?.error || t('pdf.protectError');
@@ -511,9 +479,7 @@ const downloadResult = async () => {
 
   try {
     const response = await axios.get(
-
         `/python-api/download/${resultFileUrl.value}`,
-
         { responseType: 'blob' }
     );
 
@@ -525,16 +491,13 @@ const downloadResult = async () => {
     link.click();
     link.remove();
 
-
     // Clean up the URL
     URL.revokeObjectURL(url);
-
   } catch (error) {
     console.error('Error downloading file:', error);
     error.value = t('pdf.downloadError');
   }
 };
-
 
 // Clean up object URLs when component is destroyed
 onBeforeUnmount(() => {
@@ -545,5 +508,4 @@ onBeforeUnmount(() => {
     URL.revokeObjectURL(previewPdfUrl.value);
   }
 });
-
 </script>

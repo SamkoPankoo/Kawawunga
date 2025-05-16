@@ -12,14 +12,6 @@
                 </p>
               </div>
               <v-spacer></v-spacer>
-              <v-btn
-                  color="primary"
-                  class="ml-2 mt-2"
-                  prepend-icon="mdi-folder-plus"
-                  :to="{ name: 'editor' }"
-              >
-                {{ $t('dashboard.newProject') }}
-              </v-btn>
             </div>
           </v-card-text>
         </v-card>
@@ -116,7 +108,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '../stores/auth';
+import {useAuthStore} from '@/stores/auth';
 import axios from 'axios';
 import PdfHistoryComponent from '../views/PdfHistoryComponent.vue';
 
@@ -136,7 +128,7 @@ const quickFeatures = [
   },
   {
     title: 'pdf.splitPdf',
-    icon: 'mdi-file-split',
+    icon: 'mdi-scissors-cutting',
     route: '/editor/split'
   },
   {
@@ -196,6 +188,44 @@ const generateNewApiKey = async () => {
     console.error('Failed to generate new API key:', error);
   }
 };
+async function ensureApiKeyExists() {
+  if (!authStore.user?.apiKey) {
+    console.log('No API key found, generating one...');
+
+    try {
+      const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/auth/generate-api-key`,
+          {},
+          {
+            headers: {
+              'Authorization': `Bearer ${authStore.token}`
+            }
+          }
+      );
+
+      if (response.data.apiKey) {
+        // Update our store with the new API key
+        await authStore.fetchUser();
+        console.log('API key generated successfully:', response.data.apiKey.substring(0, 10) + '...');
+
+        showSnackbar.value = true;
+        snackbarText.value = 'New API key generated successfully';
+
+        return true;
+      }
+    } catch (error) {
+      console.error('Failed to generate API key:', error);
+
+      showSnackbar.value = true;
+      snackbarText.value = 'Failed to generate API key: ' + (error.response?.data?.message || error.message);
+
+      return false;
+    }
+  } else {
+    console.log('API key already exists:', authStore.user.apiKey.substring(0, 10) + '...');
+    return true;
+  }
+}
 
 const copyApiKey = () => {
   if (!apiKey.value) return;

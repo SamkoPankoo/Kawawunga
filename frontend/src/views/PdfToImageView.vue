@@ -39,19 +39,15 @@
         <v-card>
           <v-card-title>{{ $t('pdf.preview') }}</v-card-title>
           <v-card-text>
-
             <VuePdfEmbed
                 v-if="pdfUrl"
                 :source="pdfUrl"
-
                 :page="currentPage"
                 @num-pages="numPages = $event"
                 @page-loaded="pageLoaded"
                 @error="handleError"
                 style="display: block; width: 100%;"
-
             ></VuePdfEmbed>
-
             <v-progress-circular
                 v-if="loading"
                 indeterminate
@@ -225,7 +221,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
     <LogOperation
         v-if="operationSuccess"
         :operation="'compress'"
@@ -233,7 +228,6 @@
         :metadata="getLogMetadata()"
 
     />
-
   </v-container>
 </template>
 
@@ -241,13 +235,11 @@
 import { ref, computed, watch } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-
 import VuePdfEmbed from "vue-pdf-embed";
 import {useAuthStore} from '@/stores/auth';
 import LogOperation from '@/components/pdf/LogOperation.vue';
 const operationSuccess = ref(false);
 const resultFileId = ref(null);
-
 
 const apiBaseUrl = import.meta.env.VITE_PYTHON_API_URL;
 
@@ -343,7 +335,6 @@ watch(numPages, (newValue) => {
   }
 });
 
-
 const getLogDescription = () => {
   let pagesDesc = '';
   if (pageSelection.value === 'all') {
@@ -370,7 +361,6 @@ const getLogMetadata = () => {
     timestamp: new Date().toISOString()
   };
 };
-
 
 
 watch(currentPage, () => {
@@ -501,12 +491,10 @@ const convertToImages = async () => {
     );
 
     resultFiles.value = response.data.files || [];
-
     if (resultFiles.value.length > 0) {
       resultFileId.value = resultFiles.value[0].id;
       operationSuccess.value = true;
     }
-
 
     // Check if there's a ZIP file
     if (resultFiles.value.length > 0 && resultFiles.value[0].zip_id) {
@@ -528,7 +516,6 @@ const downloadResult = async () => {
   try {
     // If we have a ZIP file, download it
     if (zipId.value) {
-
       console.log("Attempting to download ZIP file with ID:", zipId.value);
 
       // Create URLs for each file in the result set
@@ -612,7 +599,6 @@ const downloadFirstImage = async () => {
   if (resultFiles.value.length > 0) {
     const file = resultFiles.value[0];
     try {
-
       const response = await axios.get(
           `${apiBaseUrl}/download/${file.id}`,
           { responseType: 'blob' }
@@ -625,12 +611,10 @@ const downloadFirstImage = async () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-
     } catch (err) {
       console.error("Error downloading single image:", err);
       error.value = t('pdf.downloadError');
     }
-
   }
 };
 

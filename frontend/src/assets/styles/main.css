@@ -1,0 +1,33 @@
+/* Custom styles for PDF Editor */
+body {
+    font-family: 'Poppins', sans-serif;
+}
+
+.v-application {
+    font-family: 'Poppins', sans-serif !important;
+}
+
+/* Add a nice box shadow to cards for better depth */
+.v-card {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.v-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Make buttons more attractive */
+.v-btn {
+    text-transform: none !important;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+/* Red theme custom colors */
+:root {
+    --primary-color: #E53935;
+    --secondary-color: #FF5252;
+    --accent-color: #FF8A80;
+}

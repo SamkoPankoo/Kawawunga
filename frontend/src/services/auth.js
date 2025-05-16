@@ -1,3 +1,4 @@
+// src/services/auth.js
 import api from './api'
 
 export default {
@@ -32,6 +33,17 @@ export default {
                 console.error('Server health check failed:', error);
                 return { status: 'offline', error };
             });
+    },
+
+    // Additional helper method to verify token without fetching full user data
+    verifyToken(token) {
+        return api.get('/auth/verify', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        }).catch(error => {
+            console.error('Token verification failed:', error);
+            throw error;
+        });
     }
 }
-//frontend/src/services/auth.js

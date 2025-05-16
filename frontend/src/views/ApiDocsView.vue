@@ -33,6 +33,7 @@
               {{ $t('apiDocs.openInNewTab') }}
             </v-btn>
           </v-card-title>
+
           <v-card-text class="pa-0">
             <div id="backend-swagger-ui" class="swagger-container"></div>
             <div v-if="!swaggerLoaded.backend" class="text-center pa-6">
@@ -71,6 +72,7 @@
               {{ $t('apiDocs.openInNewTab') }}
             </v-btn>
           </v-card-title>
+
           <v-card-text class="pa-0">
             <div id="python-swagger-ui" class="swagger-container"></div>
             <div v-if="!swaggerLoaded.python" class="text-center pa-6">
@@ -96,12 +98,15 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
 const activeTab = ref('backend');
 const swaggerLoaded = ref({
   backend: false,
   python: false
 });
+
+const authStore = useAuthStore();
 
 // Base URLs
 const baseUrl = window.location.origin;
@@ -136,7 +141,7 @@ const loadSwaggerUI = () => {
   });
 };
 
-// Initialize Swagger UI for a specific tab
+// Initialize Swagger UI with auth
 const initSwaggerUI = async (tab) => {
   await loadSwaggerUI();
 
@@ -160,6 +165,21 @@ const initSwaggerUI = async (tab) => {
     // The URL to fetch the Swagger spec from
     const specUrl = tab === 'backend' ? backendDocsUrl : pythonDocsUrl;
 
+    // Create requestInterceptor to add API key to all requests
+    const requestInterceptor = (req) => {
+      // Add API key if available
+      if (authStore.user?.apiKey) {
+        req.headers["X-API-Key"] = authStore.user.apiKey;
+      }
+
+      // Add token if available
+      if (authStore.token) {
+        req.headers["Authorization"] = `Bearer ${authStore.token}`;
+      }
+
+      return req;
+    };
+
     // Initialize SwaggerUI
     window.SwaggerUIBundle({
       dom_id: `#${elementId}`,
@@ -178,20 +198,15 @@ const initSwaggerUI = async (tab) => {
       onFailure: (error) => {
         console.error(`Failed to load Swagger UI for ${tab}:`, error);
         swaggerLoaded.value[tab] = false;
-      }
+      },
+      requestInterceptor: requestInterceptor,
+      persistAuthorization: true
     });
   } catch (error) {
     console.error(`Error initializing Swagger UI for ${tab}:`, error);
     swaggerLoaded.value[tab] = false;
   }
 };
-
-// Watch for tab changes
-watch(activeTab, (newTab) => {
-  if (!swaggerLoaded.value[newTab]) {
-    initSwaggerUI(newTab);
-  }
-});
 
 // Initialize on mount
 onMounted(() => {
@@ -204,6 +219,13 @@ onMounted(() => {
       initSwaggerUI(activeTab.value);
     }
   });
+});
+
+// Watch for tab changes
+watch(activeTab, (newTab) => {
+  if (!swaggerLoaded.value[newTab]) {
+    initSwaggerUI(newTab);
+  }
 });
 </script>
 

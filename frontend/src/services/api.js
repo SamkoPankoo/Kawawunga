@@ -1,8 +1,8 @@
-// src/services/api.js
+// src/services/api.js - Original with minor fixes
 import axios from 'axios';
 
 // Get base URL from environment variable or use relative path
-const baseURL = import.meta.env.VITE_API_URL || '/kawawunga/api';
+const baseURL = import.meta.env.VITE_API_URL || '/api';
 
 // Create API instance
 const api = axios.create({
@@ -66,6 +66,15 @@ export const setupInterceptors = (authStore) => {
                     apiKey: authStore.user?.apiKey ? "Present" : "Missing",
                     headers: error.config?.headers
                 });
+
+                // If this is not the auth/me endpoint (to avoid infinite loops)
+                if (!error.config.url.includes('/auth/me')) {
+                    console.log('Token may be expired, refreshing auth state...');
+                    // Try to refresh the auth state once
+                    authStore.fetchUser().catch(err => {
+                        console.error('Failed to refresh auth state:', err);
+                    });
+                }
             }
             return Promise.reject(error);
         }

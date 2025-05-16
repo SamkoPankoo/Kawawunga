@@ -208,10 +208,10 @@
     <LogOperation
         v-if="operationSuccess"
         :operation="'rotate'"
-        :description="getLogDescription()"
-        :metadata="getLogMetadata()"
-        @logged="handleLogged"
-        @error="handleLogError"
+    :description="getLogDescription()"
+    :metadata="getLogMetadata()"
+    @logged="handleLogged"
+    @error="handleLogError"
     />
   </v-container>
 </template>
@@ -220,9 +220,7 @@
 import {ref, computed, watch, onBeforeUnmount} from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
-
 import VuePdfEmbed from 'vue-pdf-embed';
-
 
 const { t } = useI18n();
 

@@ -1,11 +1,11 @@
-// src/services/historyService.js
+// src/services/historyService.js - Updated with better pagination support
 import api, { getAuthHeaders } from './api';
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth';
 
 export default {
-    // Get recent history
-    async getRecentHistory(limit = 10) {
+    // Get recent history with improved pagination
+    async getRecentHistory(limit = 8) {
         try {
             const authStore = useAuthStore();
 
@@ -27,8 +27,8 @@ export default {
         }
     },
 
-    // Get PDF operation history
-    async getPdfHistory(page = 1, limit = 10) {
+    // Get PDF operation history with improved pagination
+    async getPdfHistory(page = 1, limit = 8) {
         try {
             const authStore = useAuthStore();
 
@@ -41,9 +41,9 @@ export default {
             // Get auth headers
             const headers = getAuthHeaders(authStore.token, authStore.user?.apiKey);
 
-            // Try multiple approaches to get history data
+            // Try multiple approaches to get history data with proper pagination
 
-            // First try: Using the specific PDF logs endpoint
+            // First try: Using the specific PDF logs endpoint with pagination
             try {
                 const response = await api.get('/pdfLogs', {
                     params: { page, limit }
@@ -59,47 +59,27 @@ export default {
                 console.warn('Error fetching from pdfLogs endpoint:', err.message);
             }
 
-            // Second try: Check the history by type endpoint
-            try {
-                const typeResponse = await api.get('/history/by-type/pdf-merge', {
-                    params: { limit }
-                });
-
-                if (Array.isArray(typeResponse.data) && typeResponse.data.length > 0) {
-                    return {
-                        items: typeResponse.data,
-                        pagination: {
-                            page: 1,
-                            pages: 1,
-                            total: typeResponse.data.length
-                        }
-                    };
-                }
-            } catch (typeErr) {
-                console.warn('Error fetching from by-type endpoint:', typeErr.message);
-            }
-
-            // Third try: Filter from recent history
+            // Second try: Use the history endpoint with pagination parameters
             try {
                 const historyResponse = await api.get('/history/recent', {
-                    params: { limit: limit * 2 }
+                    params: {
+                        page,
+                        limit
+                    }
                 });
 
                 if (Array.isArray(historyResponse.data)) {
-                    // Filter for PDF operations
-                    const pdfItems = historyResponse.data.filter(item =>
-                            item.action && (
-                                item.action.startsWith('pdf-') ||
-                                item.action.includes('pdf')
-                            )
-                    );
+                    // Filter for PDF operations - moved to component to avoid duplicating logic
+                    const historyItems = historyResponse.data;
 
+                    // Simulated pagination if the API doesn't support it
                     return {
-                        items: pdfItems,
+                        items: historyItems,
                         pagination: {
-                            page: 1,
-                            pages: 1,
-                            total: pdfItems.length
+                            page,
+                            // Assume there's at least one more page if we got a full page of results
+                            pages: historyItems.length >= limit ? page + 1 : page,
+                            total: historyItems.length + (historyItems.length >= limit ? limit : 0)
                         }
                     };
                 }
@@ -107,10 +87,25 @@ export default {
                 console.error('Error fetching from history endpoint:', historyErr.message);
             }
 
-            return { items: [], pagination: { page: 1, pages: 1, total: 0 } };
+            // If we reach here, all attempts failed
+            return {
+                items: [],
+                pagination: {
+                    page: 1,
+                    pages: 1,
+                    total: 0
+                }
+            };
         } catch (error) {
             console.error('Failed to fetch PDF history:', error);
-            return { items: [], pagination: { page: 1, pages: 1, total: 0 } };
+            return {
+                items: [],
+                pagination: {
+                    page: 1,
+                    pages: 1,
+                    total: 0
+                }
+            };
         }
     },
 

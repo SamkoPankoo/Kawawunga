@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -37,7 +35,7 @@ services:
       - DB_NAME=pdfeditor
       - DB_USER=root
       - DB_PASSWORD=rootpassword
-      - JWT_SECRET=hskbdfhjklsgdfhksabdhjklbsadfk\hljcvb
+      - JWT_SECRET=your-super-secret-key-change-this
       - ADMIN_EMAIL=admin@example.com
       - ADMIN_PASSWORD=adminpassword123
     depends_on:
