@@ -1,5 +1,5 @@
 # Kawawunga
-This is a final project of our webte2 course.
+This is a final project of our Webte 2 course.
 
 **Quick setup guide**
 
@@ -18,3 +18,4 @@ SQL dump file is not needed, because db is created automaticaly from init.sql
 Default administrator credentials:
   - email: admin@example.com
   - password: adminpassword123
+© Kawawunga 
