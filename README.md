@@ -7,7 +7,7 @@ clone the repository
 ```bash
 git clone https://github.com/SamkoPankoo/Kawawunga
 ```
-On windows, make sure you have docker desktop installed and running !!
+On windows, make sure you have docker desktop installed and running !
 ```bash
 cd Kawawunga
 docker-compose build
