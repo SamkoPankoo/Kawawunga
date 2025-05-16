@@ -32,14 +32,12 @@ const routes = [
         component: () => import('../views/DashboardView.vue'),
         meta: { requiresAuth: true }
     },
-    // Používateľská príručka
     {
         path: '/user-guide',
         name: 'user-guide',
         component: () => import('../views/UserGuideView.vue'),
         meta: { requiresAuth: false }
     },
-    // API dokumentácia
     {
         path: '/api-docs',
         name: 'api-docs',
@@ -82,7 +80,6 @@ const routes = [
         component: () => import('../views/DeletePagesView.vue'),
         meta: { requiresAuth: true }
     },
-    // New editor routes
     {
         path: '/editor/protect',
         name: 'protect-pdf',
@@ -112,10 +109,7 @@ const routes = [
         name: 'pdf-to-image',
         component: () => import('../views/PdfToImageView.vue'),
         meta: { requiresAuth: true }
-    }
-
-
-
+    },
 ]
 
 const router = createRouter({
@@ -124,31 +118,38 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-    const authStore = useAuthStore();
+    // Get auth store in a way that avoids the double-click issue
+    const authStore = useAuthStore()
 
+    // Route requires auth
     if (to.matched.some(record => record.meta.requiresAuth)) {
-        // For routes requiring auth
         if (!authStore.isAuthenticated) {
-            // If not authenticated, redirect to login
-            next('/login');
-        } else if (to.matched.some(record => record.meta.requiresAdmin) && !authStore.isAdmin) {
-            // If route requires admin privileges but user is not admin
-            next('/dashboard');
-        } else {
-            // Otherwise proceed
-            next();
+            next('/login')
+            return
         }
-    } else if (to.matched.some(record => record.meta.guest)) {
-        // For guest-only routes (like login/register)
-        if (authStore.isAuthenticated) {
-            next('/dashboard');
-        } else {
-            next();
+
+        // Admin check
+        if (to.matched.some(record => record.meta.requiresAdmin) && !authStore.isAdmin) {
+            next('/dashboard')
+            return
         }
-    } else {
-        // For public routes
-        next();
+
+        // User is authenticated - proceed to route
+        next()
+
+        // Fetch user data in background if needed
+        if (!authStore.user) {
+            authStore.fetchUser().catch(err => console.error('Background fetch failed:', err))
+        }
     }
-});
+    // Guest routes
+    else if (to.matched.some(record => record.meta.guest) && authStore.isAuthenticated) {
+        next('/dashboard')
+    }
+    // Public routes
+    else {
+        next()
+    }
+})
 
 export default router

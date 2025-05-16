@@ -18,11 +18,6 @@ try {
 } catch (error) {
     console.error('Error loading swagger document:', error);
 }
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
-}));
 
 dotenv.config();
 

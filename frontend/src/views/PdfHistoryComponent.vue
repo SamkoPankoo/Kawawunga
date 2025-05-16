@@ -4,12 +4,7 @@
       <v-icon start color="primary" class="mr-2">mdi-history</v-icon>
       {{ $t('dashboard.recentActivity') }}
       <v-spacer></v-spacer>
-      <v-btn size="small" color="primary" variant="text" @click="createTestLog" class="mr-2">
-        {{ $t('dashboard.testLog') }}
-      </v-btn>
-      <v-btn size="small" variant="text" @click="refreshHistory">
-        <v-icon>mdi-refresh</v-icon>
-      </v-btn>
+      <!-- Removed Test Log button -->
     </v-card-title>
 
     <v-divider></v-divider>
@@ -118,6 +113,7 @@ const testing = ref(false);
 const logging = ref(false);
 const result = ref(null);
 
+
 // Filter out download operations and duplicate entries
 // Only keep backend entries (api)
 const filteredActivities = computed(() => {
@@ -126,6 +122,11 @@ const filteredActivities = computed(() => {
 
   // Filter and deduplicate activities
   return pdfActivities.value.filter(activity => {
+    // First check if this is an API entry - skip anything not from API
+    if (activity.accessType !== 'api') {
+      return false;
+    }
+
     // Skip download operations
     if (activity.action.includes('download') || activity.action.includes('upload')) {
       return false;
@@ -142,8 +143,9 @@ const filteredActivities = computed(() => {
     // Add to our set of seen operations
     uniqueOps.add(opKey);
 
-    // Keep only backend entries
-    return activity.accessType === 'api';
+    // At this point we only return API entries that aren't duplicates
+    // and aren't download/upload operations
+    return true;
   });
 });
 
@@ -221,7 +223,7 @@ const loadHistory = async () => {
   loading.value = true;
 
   try {
-    const result = await historyService.getPdfHistory(currentPage.value, 10);
+    const result = await historyService.getPdfHistory(currentPage.value, 20);
     pdfActivities.value = result.items || [];
     totalPages.value = result.pagination?.pages || 1;
   } catch (error) {
@@ -237,25 +239,6 @@ const refreshHistory = () => {
   loadHistory();
 };
 
-const createTestLog = async () => {
-  try {
-    const success = await historyService.logPdfOperation(
-        'test',
-        t('dashboard.testOperationFromHistory'),
-        { testData: true, timestamp: new Date().toISOString() }
-    );
-
-    if (success) {
-      showSuccessSnackbar(t('dashboard.testLogCreated'));
-      await loadHistory(); // Refresh to show the new entry
-    } else {
-      showErrorSnackbar(t('dashboard.testLogFailed'));
-    }
-  } catch (error) {
-    console.error('Failed to create test log:', error);
-    showErrorSnackbar(`${t('dashboard.error')}: ${error.message || t('dashboard.unknownError')}`);
-  }
-};
 
 const showSuccessSnackbar = (text) => {
   snackbarText.value = text;

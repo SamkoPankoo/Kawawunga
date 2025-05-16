@@ -21,7 +21,7 @@
 
     <div id="user-guide-content">
       <v-row>
-        <!-- Navigácia -->
+        <!-- Navigation -->
         <v-col cols="12" md="3">
           <v-card>
             <v-list nav>
@@ -38,18 +38,15 @@
           </v-card>
         </v-col>
 
-        <!-- Obsah -->
+        <!-- Content -->
         <v-col cols="12" md="9">
           <v-card>
-            <v-card-text>
-              <!-- Úvod -->
+            <v-card-text class="content-container">
+              <!-- Introduction -->
               <section :id="sections[0].id" class="guide-section mb-8">
                 <h2 class="text-h4 mb-4">{{ $t('userGuide.introduction') }}</h2>
                 <p class="text-body-1">{{ $t('userGuide.introText') }}</p>
-                <p class="text-body-1">
-                  PDF Editor umožňuje používateľom jednoducho manipulovať s PDF súbormi priamo vo webovom prehliadači.
-                  Nepotrebujete inštalovať žiadny dodatočný softvér - stačí sa prihlásiť a začať pracovať s vašimi PDF dokumentmi.
-                </p>
+                <p class="text-body-1">{{ $t('userGuide.introDescription') }}</p>
                 <v-img
                     src="@/assets/intro-image.png"
                     alt="PDF Editor Interface"
@@ -59,79 +56,160 @@
                 ></v-img>
               </section>
 
-              <!-- Začíname -->
+              <!-- Getting Started -->
               <section :id="sections[1].id" class="guide-section mb-8">
                 <h2 class="text-h4 mb-4">{{ $t('userGuide.gettingStarted') }}</h2>
                 <p class="text-body-1">{{ $t('userGuide.gettingStartedText') }}</p>
 
-                <h3 class="text-h5 mt-4 mb-2">Registrácia</h3>
-                <ol class="text-body-1">
-                  <li>Kliknite na tlačidlo "Registrácia" v hornom menu</li>
-                  <li>Vyplňte svoju emailovú adresu a heslo</li>
-                  <li>Kliknite na tlačidlo "Registrovať sa"</li>
-                </ol>
+                <div class="section-content">
+                  <h3 class="text-h5 mt-4 mb-2">{{ $t('userGuide.registration') }}</h3>
+                  <ol class="text-body-1">
+                    <li>{{ $t('userGuide.registrationStep1') }}</li>
+                    <li>{{ $t('userGuide.registrationStep2') }}</li>
+                    <li>{{ $t('userGuide.registrationStep3') }}</li>
+                  </ol>
 
-                <h3 class="text-h5 mt-4 mb-2">Prihlásenie</h3>
-                <ol class="text-body-1">
-                  <li>Kliknite na tlačidlo "Prihlásenie" v hornom menu</li>
-                  <li>Zadajte svoju emailovú adresu a heslo</li>
-                  <li>Kliknite na tlačidlo "Prihlásiť sa"</li>
-                </ol>
+                  <h3 class="text-h5 mt-4 mb-2">{{ $t('userGuide.login') }}</h3>
+                  <ol class="text-body-1">
+                    <li>{{ $t('userGuide.loginStep1') }}</li>
+                    <li>{{ $t('userGuide.loginStep2') }}</li>
+                    <li>{{ $t('userGuide.loginStep3') }}</li>
+                  </ol>
 
-                <h3 class="text-h5 mt-4 mb-2">Dashboard</h3>
-                <p class="text-body-1">
-                  Po prihlásení sa zobrazí dashboard, kde uvidíte:
-                </p>
-                <ul class="text-body-1">
-                  <li>Nedávnu aktivitu - zoznam naposledy upravených súborov</li>
-                  <li>Rýchly prístup - skratky k najpoužívanejším nástrojom</li>
-                  <li>API prístup - váš API kľúč pre programový prístup k službám</li>
-                </ul>
+                  <h3 class="text-h5 mt-4 mb-2">{{ $t('userGuide.dashboard') }}</h3>
+                  <p class="text-body-1">
+                    {{ $t('userGuide.dashboardDescription') }}
+                  </p>
+                  <ul class="text-body-1">
+                    <li>{{ $t('userGuide.recentActivityDesc') }}</li>
+                    <li>{{ $t('userGuide.quickAccessDesc') }}</li>
+                    <li>{{ $t('userGuide.apiAccessDesc') }}</li>
+                  </ul>
+                </div>
               </section>
 
-              <!-- Funkcie a nástroje -->
+              <!-- Features -->
               <section :id="sections[2].id" class="guide-section mb-8">
                 <h2 class="text-h4 mb-4">{{ $t('userGuide.features') }}</h2>
                 <p class="text-body-1">
-                  PDF Editor poskytuje nasledujúce funkcie pre prácu s PDF súbormi:
+                  PDF Editor provides the following features for working with PDF files:
                 </p>
 
-                <div v-for="(feature, index) in features" :key="index" class="mb-6">
-                  <h3 class="text-h5 mb-2">{{ $t(feature.title) }}</h3>
-                  <p class="text-body-1">{{ $t(feature.description) }}</p>
+                <!-- Merge PDF -->
+                <div class="mb-6">
+                  <h3 class="text-h5 mb-2">{{ $t('userGuide.merge.title') }}</h3>
+                  <p class="text-body-1">{{ $t('pdf.mergePdfDesc') }}</p>
                   <v-card variant="outlined" class="pa-4 my-2">
-                    <h4 class="text-subtitle-1 font-weight-bold">Použitie:</h4>
+                    <h4 class="text-subtitle-1 font-weight-bold">{{ $t('userGuide.tools') }}:</h4>
                     <div class="pl-1">
                       <ol class="text-body-1 pl-4">
-                        <li v-for="(step, i) in feature.steps" :key="i">
-                          {{ step }}
-                        </li>
+                        <li>{{ $t('userGuide.merge.step1') }}</li>
+                        <li>{{ $t('userGuide.merge.step2') }}</li>
+                        <li>{{ $t('userGuide.merge.step3') }}</li>
+                        <li>{{ $t('userGuide.merge.step4') }}</li>
+                        <li>{{ $t('userGuide.merge.step5') }}</li>
+                      </ol>
+                    </div>
+                  </v-card>
+                </div>
+
+                <!-- Split PDF -->
+                <div class="mb-6">
+                  <h3 class="text-h5 mb-2">{{ $t('userGuide.split.title') }}</h3>
+                  <p class="text-body-1">{{ $t('pdf.splitPdfDesc') }}</p>
+                  <v-card variant="outlined" class="pa-4 my-2">
+                    <h4 class="text-subtitle-1 font-weight-bold">{{ $t('userGuide.tools') }}:</h4>
+                    <div class="pl-1">
+                      <ol class="text-body-1 pl-4">
+                        <li>{{ $t('userGuide.split.step1') }}</li>
+                        <li>{{ $t('userGuide.split.step2') }}</li>
+                        <li>{{ $t('userGuide.split.step3') }}</li>
+                        <li>{{ $t('userGuide.split.step4') }}</li>
+                        <li>{{ $t('userGuide.split.step5') }}</li>
+                        <li>{{ $t('userGuide.split.step6') }}</li>
+                      </ol>
+                    </div>
+                  </v-card>
+                </div>
+
+                <!-- Watermark PDF -->
+                <div class="mb-6">
+                  <h3 class="text-h5 mb-2">{{ $t('userGuide.watermark.title') }}</h3>
+                  <p class="text-body-1">{{ $t('pdf.watermarkPdfDesc') }}</p>
+                  <v-card variant="outlined" class="pa-4 my-2">
+                    <h4 class="text-subtitle-1 font-weight-bold">{{ $t('userGuide.tools') }}:</h4>
+                    <div class="pl-1">
+                      <ol class="text-body-1 pl-4">
+                        <li>{{ $t('userGuide.watermark.step1') }}</li>
+                        <li>{{ $t('userGuide.watermark.step2') }}</li>
+                        <li>{{ $t('userGuide.watermark.step3') }}</li>
+                        <li>{{ $t('userGuide.watermark.step4') }}</li>
+                        <li>{{ $t('userGuide.watermark.step5') }}</li>
+                        <li>{{ $t('userGuide.watermark.step6') }}</li>
+                        <li>{{ $t('userGuide.watermark.step7') }}</li>
+                      </ol>
+                    </div>
+                  </v-card>
+                </div>
+
+                <!-- Rotate PDF -->
+                <div class="mb-6">
+                  <h3 class="text-h5 mb-2">{{ $t('userGuide.rotate.title') }}</h3>
+                  <p class="text-body-1">{{ $t('pdf.rotatePdfDesc') }}</p>
+                  <v-card variant="outlined" class="pa-4 my-2">
+                    <h4 class="text-subtitle-1 font-weight-bold">{{ $t('userGuide.tools') }}:</h4>
+                    <div class="pl-1">
+                      <ol class="text-body-1 pl-4">
+                        <li>{{ $t('userGuide.rotate.step1') }}</li>
+                        <li>{{ $t('userGuide.rotate.step2') }}</li>
+                        <li>{{ $t('userGuide.rotate.step3') }}</li>
+                        <li>{{ $t('userGuide.rotate.step4') }}</li>
+                        <li>{{ $t('userGuide.rotate.step5') }}</li>
+                        <li>{{ $t('userGuide.rotate.step6') }}</li>
+                      </ol>
+                    </div>
+                  </v-card>
+                </div>
+
+                <!-- Delete Pages -->
+                <div class="mb-6">
+                  <h3 class="text-h5 mb-2">{{ $t('userGuide.deletePages.title') }}</h3>
+                  <p class="text-body-1">{{ $t('pdf.deletePagesDesc') }}</p>
+                  <v-card variant="outlined" class="pa-4 my-2">
+                    <h4 class="text-subtitle-1 font-weight-bold">{{ $t('userGuide.tools') }}:</h4>
+                    <div class="pl-1">
+                      <ol class="text-body-1 pl-4">
+                        <li>{{ $t('userGuide.deletePages.step1') }}</li>
+                        <li>{{ $t('userGuide.deletePages.step2') }}</li>
+                        <li>{{ $t('userGuide.deletePages.step3') }}</li>
+                        <li>{{ $t('userGuide.deletePages.step4') }}</li>
+                        <li>{{ $t('userGuide.deletePages.step5') }}</li>
                       </ol>
                     </div>
                   </v-card>
                 </div>
               </section>
 
-              <!-- API -->
+              <!-- API Usage -->
               <section :id="sections[3].id" class="guide-section mb-8">
                 <h2 class="text-h4 mb-4">{{ $t('userGuide.apiUsage') }}</h2>
                 <p class="text-body-1">{{ $t('userGuide.apiUsageText') }}</p>
 
-                <h3 class="text-h5 mt-4 mb-2">Získanie API kľúča</h3>
+                <h3 class="text-h5 mt-4 mb-2">{{ $t('userGuide.gettingApiKey') }}</h3>
                 <p class="text-body-1">
-                  Váš osobný API kľúč nájdete na dashboarde v sekcii "API Prístup". Tento kľúč musíte zahrnúť v hlavičke každého API požiadavku.
+                  {{ $t('userGuide.apiKeyDescription') }}
                 </p>
 
-                <h3 class="text-h5 mt-4 mb-2">Autentifikácia</h3>
+                <h3 class="text-h5 mt-4 mb-2">{{ $t('userGuide.authentication') }}</h3>
                 <v-card variant="outlined" class="pa-4 my-2 bg-grey-lighten-4">
                   <pre class="language-bash"><code>curl -X POST https://api.pdfeditor.com/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email": "vas@email.com", "password": "vase_heslo"}'</code></pre>
                 </v-card>
 
-                <h3 class="text-h5 mt-4 mb-2">Používanie API</h3>
+                <h3 class="text-h5 mt-4 mb-2">{{ $t('userGuide.usingApi') }}</h3>
                 <p class="text-body-1">
-                  Pri každom API požiadavku musíte pridať hlavičku s vaším API kľúčom:
+                  {{ $t('userGuide.apiRequestHeader') }}
                 </p>
                 <v-card variant="outlined" class="pa-4 my-2 bg-grey-lighten-4">
                   <pre class="language-bash"><code>curl -X POST https://api.pdfeditor.com/api/merge \
@@ -141,25 +219,58 @@
                 </v-card>
 
                 <p class="text-body-1 mt-4">
-                  Úplnú dokumentáciu API nájdete v sekcii "API Dokumentácia" v hlavnom menu.
+                  {{ $t('userGuide.fullApiDocumentation') }}
                 </p>
               </section>
 
-              <!-- Časté problémy -->
+              <!-- Common Issues -->
               <section :id="sections[4].id" class="guide-section">
                 <h2 class="text-h4 mb-4">{{ $t('userGuide.commonIssues') }}</h2>
                 <p class="text-body-1">{{ $t('userGuide.commonIssuesText') }}</p>
 
                 <v-expansion-panels class="mt-4">
-                  <v-expansion-panel
-                      v-for="(issue, index) in commonIssues"
-                      :key="index"
-                  >
+                  <v-expansion-panel>
                     <v-expansion-panel-title>
-                      {{ issue.question }}
+                      {{ $t('userGuide.issues.fileSizeLimit.question') }}
                     </v-expansion-panel-title>
                     <v-expansion-panel-text>
-                      <p class="text-body-1">{{ issue.answer }}</p>
+                      <p class="text-body-1">{{ $t('userGuide.issues.fileSizeLimit.answer') }}</p>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+
+                  <v-expansion-panel>
+                    <v-expansion-panel-title>
+                      {{ $t('userGuide.issues.mergeMultipleFiles.question') }}
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <p class="text-body-1">{{ $t('userGuide.issues.mergeMultipleFiles.answer') }}</p>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+
+                  <v-expansion-panel>
+                    <v-expansion-panel-title>
+                      {{ $t('userGuide.issues.passwordProtected.question') }}
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <p class="text-body-1">{{ $t('userGuide.issues.passwordProtected.answer') }}</p>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+
+                  <v-expansion-panel>
+                    <v-expansion-panel-title>
+                      {{ $t('userGuide.issues.formattingLost.question') }}
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <p class="text-body-1">{{ $t('userGuide.issues.formattingLost.answer') }}</p>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+
+                  <v-expansion-panel>
+                    <v-expansion-panel-title>
+                      {{ $t('userGuide.issues.newApiKey.question') }}
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <p class="text-body-1">{{ $t('userGuide.issues.newApiKey.answer') }}</p>
                     </v-expansion-panel-text>
                   </v-expansion-panel>
                 </v-expansion-panels>
@@ -171,9 +282,9 @@
     </div>
   </v-container>
 </template>
-
 <script setup>
-import { ref, onMounted, getCurrentInstance } from 'vue';
+import { ref, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 import axios from 'axios';
 
 const loading = ref(false);
@@ -184,91 +295,6 @@ const sections = [
   { id: 'features', title: 'userGuide.features' },
   { id: 'api-usage', title: 'userGuide.apiUsage' },
   { id: 'common-issues', title: 'userGuide.commonIssues' }
-];
-
-const features = [
-  {
-    title: 'pdf.mergePdf',
-    description: 'pdf.mergePdfDesc',
-    steps: [
-      'Prejdite na stránku "Zlúčiť PDF"',
-      'Nahratie PDF súborov, ktoré chcete zlúčiť',
-      'Usporiadajte súbory do požadovaného poradia presunom nahor/nadol',
-      'Kliknite na tlačidlo "Zlúčiť"',
-      'Po dokončení stiahnite zlúčený PDF súbor'
-    ]
-  },
-  {
-    title: 'pdf.splitPdf',
-    description: 'pdf.splitPdfDesc',
-    steps: [
-      'Prejdite na stránku "Rozdeliť PDF"',
-      'Nahrajte PDF súbor, ktorý chcete rozdeliť',
-      'Vyberte metódu rozdelenia (po stranách, podľa rozsahu, extrakcia konkrétnych strán)',
-      'Zadajte požadované strany alebo rozsahy',
-      'Kliknite na tlačidlo "Rozdeliť"',
-      'Po dokončení stiahnite výsledné PDF súbory alebo ZIP archív'
-    ]
-  },
-  {
-    title: 'pdf.watermarkPdf',
-    description: 'pdf.watermarkPdfDesc',
-    steps: [
-      'Prejdite na stránku "Pridať vodoznak"',
-      'Nahrajte PDF súbor, do ktorého chcete pridať vodoznak',
-      'Zadajte text vodoznaku',
-      'Upravte parametre vodoznaku (priehľadnosť, veľkosť, farba, uhol)',
-      'Vyberte strany, na ktoré sa má vodoznak aplikovať',
-      'Kliknite na tlačidlo "Aplikovať vodoznak"',
-      'Po dokončení stiahnite výsledný PDF súbor'
-    ]
-  },
-  {
-    title: 'pdf.rotatePdf',
-    description: 'pdf.rotatePdfDesc',
-    steps: [
-      'Prejdite na stránku "Otočiť PDF"',
-      'Nahrajte PDF súbor, ktorý chcete otočiť',
-      'Vyberte uhol otočenia (90°, 180°, 270°)',
-      'Vyberte strany, ktoré chcete otočiť',
-      'Kliknite na tlačidlo "Otočiť"',
-      'Po dokončení stiahnite výsledný PDF súbor'
-    ]
-  },
-  {
-    title: 'pdf.deletePages',
-    description: 'pdf.deletePagesDesc',
-    steps: [
-      'Prejdite na stránku "Vymazať stránky"',
-      'Nahrajte PDF súbor, z ktorého chcete vymazať stránky',
-      'Vyberte strany, ktoré chcete vymazať',
-      'Kliknite na tlačidlo "Vymazať stránky"',
-      'Po dokončení stiahnite výsledný PDF súbor'
-    ]
-  }
-];
-
-const commonIssues = [
-  {
-    question: 'Nedokážem nahrať súbor väčší ako 50 MB',
-    answer: 'PDF Editor má momentálne limit 50 MB pre nahrávané súbory. Ak potrebujete spracovať väčšie súbory, skúste ich najprv rozdeliť na menšie časti alebo použiť nástroj na kompresiu PDF.'
-  },
-  {
-    question: 'Ako môžem zlúčiť viac ako 10 PDF súborov?',
-    answer: 'Aj keď rozhranie zobrazuje možnosť nahrať maximálne 10 súborov naraz, môžete zlúčiť viac súborov postupne. Najprv zlúčte prvých 10 súborov, potom použite výsledný súbor a zlúčte ho s ďalšími súbormi.'
-  },
-  {
-    question: 'Moje heslo chránené PDF sa nedá spracovať',
-    answer: 'PDF Editor momentálne nepodporuje spracovanie heslo chránených PDF súborov. Pred nahratím do aplikácie musíte odstrániť heslo z PDF (pomocou pôvodnej aplikácie, v ktorej bol PDF vytvorený).'
-  },
-  {
-    question: 'Po zlúčení PDF sa stratilo formátovanie/fonty',
-    answer: 'Niektoré PDF súbory používajú špeciálne fonty, ktoré nemusia byť správne vložené do dokumentu. Odporúčame, aby ste si výsledný PDF súbor vždy skontrolovali a v prípade problémov s formátovaním skúste pôvodné súbory uložiť s vloženými fontami.'
-  },
-  {
-    question: 'Ako môžem vytvoriť nový API kľúč?',
-    answer: 'Nový API kľúč môžete vygenerovať na Dashboarde v sekcii "API Prístup". Kliknite na tlačidlo "Vygenerovať nový kľúč". Upozorňujeme, že po vygenerovaní nového kľúča bude predchádzajúci kľúč neplatný.'
-  }
 ];
 
 const scrollToSection = (sectionId) => {
@@ -282,66 +308,71 @@ const downloadPdf = async () => {
   loading.value = true;
 
   try {
-    // Dynamické načítanie html2pdf.js
-    // Toto riešenie používa dynamický import na načítanie knižnice len vtedy, keď je potrebná
+    // Dynamic loading of html2pdf.js
     await new Promise((resolve, reject) => {
+      if (window.html2pdf) {
+        resolve();
+        return;
+      }
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
       script.onload = resolve;
       script.onerror = reject;
       document.head.appendChild(script);
     });
-    const html2pdf = window.html2pdf;
 
-
-    // Získanie obsahu príručky
+    // Get guide content
     const content = document.getElementById('user-guide-content');
 
-    // Odstránenie nepotrebných elementov pre PDF export
+    // Clone and prepare for export
     const clonedContent = content.cloneNode(true);
-    const buttonElements = clonedContent.querySelectorAll('button, .v-btn');
-    buttonElements.forEach(el => el.parentNode.removeChild(el));
+    clonedContent.querySelectorAll('button, .v-btn').forEach(el => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
 
-    // Konfigurácia PDF
+    // Replace images with placeholders to avoid cross-origin issues
+    clonedContent.querySelectorAll('img').forEach(img => {
+      const placeholder = document.createElement('div');
+      placeholder.style.width = '100%';
+      placeholder.style.height = '100px';
+      placeholder.style.backgroundColor = '#f0f0f0';
+      placeholder.style.display = 'flex';
+      placeholder.style.alignItems = 'center';
+      placeholder.style.justifyContent = 'center';
+      placeholder.textContent = '[Image: ' + (img.alt || 'PDF Editor') + ']';
+      if (img.parentNode) img.parentNode.replaceChild(placeholder, img);
+    });
+
+    // PDF options
     const options = {
       margin: 10,
       filename: 'pdfeditor-user-guide.pdf',
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
+      html2canvas: {
+        scale: 2,
+        logging: false,
+        useCORS: false,
+        allowTaint: true
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Generovanie PDF
-    // Použitie metódy from().set().save() namiesto priameho volania save()
-    await html2pdf()
-        .from(clonedContent)
-        .set(options)
-        .save();
+    // Generate PDF
+    await window.html2pdf().from(clonedContent).set(options).save();
 
-    // Pre logovanie tejto operácie do histórie
+    // Log operation
     try {
-      // Get auth store
       const authStore = useAuthStore();
-
-      // Make sure we have auth credentials
       if (authStore.isAuthenticated) {
-        // Prepare headers with both token and API key (if available)
         const headers = {};
+        if (authStore.token) headers['Authorization'] = `Bearer ${authStore.token}`;
+        if (authStore.user?.apiKey) headers['X-API-Key'] = authStore.user.apiKey;
 
-        if (authStore.token) {
-          headers['Authorization'] = `Bearer ${authStore.token}`;
-        }
-
-        if (authStore.user?.apiKey) {
-          headers['X-API-Key'] = authStore.user.apiKey;
-        }
-
-        // Only log if we have authentication
         if (Object.keys(headers).length > 0) {
           await axios.post(
               `${import.meta.env.VITE_API_URL}/history/log`,
               {
-                action: 'export-user-guide',
+                action: 'pdf-export-user-guide',
                 description: 'Exported user guide to PDF',
                 metadata: {
                   operationType: 'export',
@@ -357,17 +388,28 @@ const downloadPdf = async () => {
     }
   } catch (error) {
     console.error('Error generating PDF:', error);
-    alert('Nastala chyba pri generovaní PDF. Prosím, skúste to znovu neskôr.');
+    alert('Error generating PDF. Please try again later.');
   } finally {
     loading.value = false;
   }
 };
-
 </script>
-
 <style scoped>
 .guide-section {
   scroll-margin-top: 70px;
+}
+
+/* Content container with overflow control */
+.content-container {
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: 1.5rem;
+}
+
+/* Section content wrapper */
+.section-content {
+  width: 100%;
+  padding-right: 1rem;
 }
 
 pre {
@@ -379,24 +421,47 @@ pre {
   font-family: monospace;
 }
 
-/* Oprava paddingu pro seznam uvnitř rámečků */
-v-card.pa-4 ol {
-  padding-left: 10rem !important;
+/* Improved list styling */
+.v-card .pa-4 ol,
+.content-container ol {
+  padding-left: 3rem !important;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-
-/* Obecná úprava všech seznamů v dokumentu */
 .text-body-1 ol,
 .text-body-1 ul {
-  padding-left: 2rem;
+  padding-left: 3rem !important;
+  margin-bottom: 1rem;
+  max-width: calc(100% - 3rem);
 }
 
-/* Zajištění responzivity seznamů na menších obrazovkách */
+.text-body-1 li {
+  margin-bottom: 0.5rem;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+/* Responsive styles */
 @media (max-width: 600px) {
-  v-card.pa-4 ol,
+  .content-container {
+    padding: 1rem;
+  }
+
+  .section-content {
+    padding-right: 0.5rem;
+  }
+
+  .v-card .pa-4 ol,
+  .content-container ol,
   .text-body-1 ol,
   .text-body-1 ul {
-    padding-left: 1.5rem;
+    padding-left: 2rem !important;
+  }
+
+  .text-body-1 ol,
+  .text-body-1 ul {
+    max-width: calc(100% - 2rem);
   }
 }
 </style>

@@ -1,26 +1,65 @@
 const express = require('express');
 const router = express.Router();
 const History = require('../models/History');
+const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 
 // Get user's recent activity
 router.get('/recent', authMiddleware, async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit) || 10;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 8; // Default to 8 items per page
+        const offset = (page - 1) * limit;
 
+        // Count total records first for pagination info
+        const totalCount = await History.count({
+            where: {
+                userId: req.user.id,
+                // Only count PDF operations or non-system operations
+                action: {
+                    [Op.or]: [
+                        { [Op.like]: 'pdf-%' },
+                        { [Op.notLike]: 'GET %' },
+                        { [Op.notLike]: 'POST %' },
+                        { [Op.notLike]: 'PUT %' },
+                        { [Op.notLike]: 'DELETE %' }
+                    ]
+                }
+            }
+        });
+
+        // Get activities with pagination
         const activities = await History.findAll({
             where: {
                 userId: req.user.id
             },
             order: [['createdAt', 'DESC']],
-            limit: limit
+            limit: limit,
+            offset: offset
         });
 
-        res.json(activities);
+        // Add pagination metadata
+        const response = {
+            data: activities,
+            pagination: {
+                total: totalCount,
+                page: page,
+                pages: Math.ceil(totalCount / limit)
+            }
+        };
+
+        res.json(response);
     } catch (error) {
         console.error('Failed to fetch history:', error);
-        // Return empty array instead of error to prevent breaking the client app
-        res.json([]);
+        // Return empty result with pagination info instead of error
+        res.json({
+            data: [],
+            pagination: {
+                total: 0,
+                page: 1,
+                pages: 1
+            }
+        });
     }
 });
 
@@ -115,11 +154,15 @@ router.get('/admin/all', authMiddleware, async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
 
+        // Find all history entries with their associated users
         const history = await History.findAndCountAll({
             order: [['createdAt', 'DESC']],
             limit,
             offset,
-            include: [{ model: User, attributes: ['email'] }]
+            include: [{
+                model: User,
+                attributes: ['email']
+            }]
         });
 
         res.json({

@@ -39,6 +39,18 @@ router.post('/register', async (req, res) => {
     }
 });
 
+router.get('/verify', authMiddleware, (req, res) => {
+    // If the middleware passes, the token is valid
+    res.json({
+        valid: true,
+        user: {
+            id: req.user.id,
+            email: req.user.email,
+            role: req.user.role
+        }
+    });
+});
+
 // Login
 router.post('/login', async (req, res) => {
     try {
@@ -65,7 +77,7 @@ router.post('/login', async (req, res) => {
         // Generate token
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || 'your-secret-key',
             { expiresIn: '24h' }
         );
 
@@ -73,14 +85,27 @@ router.post('/login', async (req, res) => {
         user.lastLogin = new Date();
         await user.save();
 
+        // Get the real IP address with proper fallbacks
+        const ip = (req.headers['x-forwarded-for'] || '')
+                .split(',')
+                .pop()
+                .trim() ||
+            req.socket.remoteAddress ||
+            req.ip ||
+            '127.0.0.1';
+
+        console.log(`Login from IP: ${ip}`);
+
         // Log history
         try {
-            const location = await getLocationInfo(req.ip);
+            const location = await getLocationInfo(ip);
+            console.log(`Location for ${ip}: ${location.city}, ${location.country}`);
+
             await History.create({
                 userId: user.id,
                 action: 'login',
                 description: 'User logged in',
-                ipAddress: req.ip,
+                ipAddress: ip,
                 userAgent: req.headers['user-agent'],
                 city: location.city,
                 country: location.country,
@@ -96,7 +121,8 @@ router.post('/login', async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                apiKey: user.apiKey
             }
         });
     } catch (error) {

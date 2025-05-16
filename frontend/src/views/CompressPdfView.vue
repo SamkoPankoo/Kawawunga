@@ -37,7 +37,6 @@
     <v-row v-if="pdfInfo">
       <v-col cols="12" md="7">
         <v-card>
-
           <v-card-title class="d-flex align-center">
             <span>{{ $t('pdf.preview') }}</span>
             <v-spacer></v-spacer>
@@ -55,15 +54,12 @@
                 @error="handleError"
                 style="display: block; width: 100%;"
             ></VuePdfEmbed>
-
             <v-progress-circular
                 v-if="loading"
                 indeterminate
                 color="primary"
                 class="mt-5"
             ></v-progress-circular>
-
-
 
             <div class="d-flex justify-center align-center mt-4">
               <v-btn icon="mdi-chevron-left" @click="prevPage" :disabled="currentPage <= 1"></v-btn>
@@ -78,17 +74,14 @@
         <v-card>
           <v-card-title>{{ $t('pdf.compressionOptions') }}</v-card-title>
           <v-card-text>
-
             <v-radio-group
                 v-model="compressionLevel"
                 :label="$t('pdf.compressionLevel')"
                 @update:model-value="previewCompression"
-
             >
               <v-radio
                   :label="$t('pdf.low')"
                   value="low"
-
               ></v-radio>
               <v-radio
                   :label="$t('pdf.medium')"
@@ -98,7 +91,6 @@
                   :label="$t('pdf.high')"
                   value="high"
               ></v-radio>
-
             </v-radio-group>
 
             <v-alert
@@ -108,7 +100,6 @@
                 icon="mdi-information"
             >
               {{ $t('pdf.compressionNote') }}
-
             </v-alert>
 
             <v-alert
@@ -127,7 +118,6 @@
               <p v-else>
                 {{ $t('pdf.noCompressionResult') }}
               </p>
-
             </v-alert>
           </v-card-text>
           <v-card-actions class="px-4 pb-4">
@@ -137,9 +127,7 @@
                 :disabled="!canCompress || processing"
                 :loading="processing"
                 @click="compressPdf"
-
                 prepend-icon="mdi-file-compare"
-
                 size="large"
             >
               {{ $t('pdf.applyCompression') }}
@@ -158,7 +146,6 @@
         <v-card-text>
           <p>{{ $t('pdf.compressionApplied') }}</p>
           <p class="text-grey">{{ resultFilename }}</p>
-
           <p v-if="originalFileSize && finalCompressedSize">
             {{ $t('pdf.finalCompressionResult', {
             from: formatFileSize(originalFileSize),
@@ -166,7 +153,6 @@
             percent: Math.round((1 - finalCompressedSize / originalFileSize) * 100)
           }) }}
           </p>
-
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -187,7 +173,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
     <LogOperation
         v-if="operationSuccess"
         :operation="'compress'"
@@ -195,19 +180,16 @@
         :metadata="getLogMetadata()"
 
     />
-
   </v-container>
 </template>
 
 <script setup>
-
 import { ref, computed, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import VuePdfEmbed from 'vue-pdf-embed';
 import {useAuthStore} from '@/stores/auth';
 import LogOperation from "@/components/pdf/LogOperation.vue";
-
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -221,7 +203,6 @@ const loading = ref(false);
 const error = ref(null);
 const fileId = ref(null);
 
-
 // For live preview
 const previewPdfUrl = ref(null);
 const isPreviewCompressed = ref(false);
@@ -233,14 +214,12 @@ const currentPreviewUrl = computed(() => {
   return previewPdfUrl.value || pdfUrl.value;
 });
 
-
 // Compression options
 const compressionLevel = ref('medium');
 const processing = ref(false);
 const showResultDialog = ref(false);
 const resultFileUrl = ref(null);
 const resultFilename = ref(null);
-
 
 // File size tracking for compression metrics
 const originalFileSize = ref(null);
@@ -251,13 +230,11 @@ const compressionSuccess = computed(() => {
   return compressedFileSize.value < originalFileSize.value;
 });
 
-
 const rules = {
   required: value => !!value || t('validation.required')
 };
 
 const canCompress = computed(() => {
-
   return pdfInfo.value && compressionLevel.value;
 });
 
@@ -279,13 +256,11 @@ const getLogMetadata = () => {
     resultFile: resultFilename.value,
     timestamp: new Date().toISOString()
   };
-
 };
 
 const handleFileChange = () => {
   if (selectedFile.value) {
     pdfUrl.value = URL.createObjectURL(selectedFile.value);
-
     // Save original file size
     originalFileSize.value = selectedFile.value.size;
     // Reset preview when changing file
@@ -301,7 +276,6 @@ const handleFileChange = () => {
     originalFileSize.value = null;
     compressedFileSize.value = null;
     isPreviewCompressed.value = false;
-
   }
 };
 
@@ -328,7 +302,6 @@ const nextPage = () => {
   }
 };
 
-
 const formatFileSize = (bytes) => {
   if (!bytes) return '0 Bytes';
   const k = 1024;
@@ -336,7 +309,6 @@ const formatFileSize = (bytes) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
-
 
 const uploadFile = async () => {
   if (!selectedFile.value) return;
@@ -349,9 +321,7 @@ const uploadFile = async () => {
     formData.append('pdf', selectedFile.value);
 
     const response = await axios.post(
-
         `/python-api/upload`,
-
         formData,
         {
           headers: {
@@ -363,10 +333,8 @@ const uploadFile = async () => {
     fileId.value = response.data.id;
     pdfInfo.value = response.data;
 
-
     // Create initial preview with default compression level
     previewCompression();
-
   } catch (error) {
     console.error('Error uploading PDF:', error);
     error.value = error.response?.data?.error || t('pdf.uploadError');
@@ -374,7 +342,6 @@ const uploadFile = async () => {
     loading.value = false;
   }
 };
-
 
 // Function to create live preview of compression
 const previewCompression = () => {
@@ -453,7 +420,6 @@ const previewCompression = () => {
   }, 500); // 500ms debounce
 };
 
-
 const compressPdf = async () => {
   if (!fileId.value) return;
 
@@ -476,17 +442,14 @@ const compressPdf = async () => {
     }
 
     const response = await axios.post(
-
         `/python-api/compress`,
-
         requestData,
         { headers }
     );
 
     resultFileUrl.value = response.data.id;
-
-    resultFileId.value = response.data.id;
-    operationSuccess.value = true;
+    const resultFileId = ref(null);
+    const operationSuccess = ref(false);
     resultFilename.value = response.data.filename || 'compressed.pdf';
 
     // Get final PDF to measure size
@@ -515,7 +478,6 @@ const compressPdf = async () => {
     fileId.value = response.data.id;
     pdfInfo.value = response.data;
 
-
   } catch (error) {
     console.error('Error compressing PDF:', error);
     error.value = error.response?.data?.error || t('pdf.compressError');
@@ -529,9 +491,7 @@ const downloadResult = async () => {
 
   try {
     const response = await axios.get(
-
         `/python-api/download/${resultFileUrl.value}`,
-
         { responseType: 'blob' }
     );
 
@@ -543,16 +503,13 @@ const downloadResult = async () => {
     link.click();
     link.remove();
 
-
     // Clean up the URL
     URL.revokeObjectURL(url);
-
   } catch (error) {
     console.error('Error downloading file:', error);
     error.value = t('pdf.downloadError');
   }
 };
-
 
 // Clean up object URLs when component is destroyed
 onBeforeUnmount(() => {
@@ -563,5 +520,4 @@ onBeforeUnmount(() => {
     URL.revokeObjectURL(previewPdfUrl.value);
   }
 });
-
 </script>
