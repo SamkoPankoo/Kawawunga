@@ -18,4 +18,6 @@ SQL dump file is not needed, because db is created automaticaly from init.sql
 Default administrator credentials:
   - email: admin@example.com
   - password: adminpassword123
+
+    
 © Kawawunga 
